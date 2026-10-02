@@ -1,0 +1,9 @@
+# Dependências baixadas pelo npm (gigante, se recria com "npm install")
+node_modules/
+
+# Arquivos gerados automaticamente pelo build
+dist/
+
+# Segredos e configurações locais
+.env
+*.log
