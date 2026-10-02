@@ -7,3 +7,6 @@ dist/
 # Segredos e configurações locais
 .env
 *.log
+
+# Gerado pelo Vite a partir de src/
+apps-script/Index.html
