@@ -941,6 +941,7 @@ var focusMode = false;
 var undoStack = [], redoStack = [];
 var heights = {};
 var saving = false, pendingSave = false, saveTimer = null;
+var graphSeq = 0;                 // muda toda vez que outro grafo é aberto
 
 /* ── servidor (Apps Script) com reserva local para testar fora do Google ── */
 var LocalApi = {
@@ -1048,10 +1049,12 @@ function saveNow() {
   if (!hasContent(G)) return Promise.resolve();
   if (saving) { pendingSave = true; return Promise.resolve(); }
   saving = true;
-  var ref = G;
+  var ref = G, seq = graphSeq;
   setStatus('salvando…');
   return api('saveGraph', JSON.stringify(ref)).then(function (r) {
     ref.id = r.id; ref.updatedAt = r.updatedAt;
+    // Se o grafo foi desfeito/refeito durante o salvamento, G virou outro objeto: passa o id para ele também
+    if (seq === graphSeq && G !== ref && !G.id) { G.id = r.id; G.updatedAt = r.updatedAt; }
     setStatus('salvo');
   }).catch(function (e) {
     setStatus('erro ao salvar', true);
@@ -1297,7 +1300,7 @@ function fitView() {
     maxx = Math.max(maxx, n.position.x + NODE_W); maxy = Math.max(maxy, n.position.y + (heights[n.id] || DEFAULT_H));
   });
   var pad = 70, w = maxx - minx + pad * 2, h = maxy - miny + pad * 2;
-  var k = Math.max(0.25, Math.min(1.15, cw / w, (ch - 50) / h));
+  var k = Math.max(0.1, Math.min(1.15, cw / w, (ch - 50) / h));
   view = { k: k, x: (cw - (maxx - minx) * k) / 2 - minx * k, y: (ch - 50 - (maxy - miny) * k) / 2 - miny * k };
   applyView();
 }
@@ -1311,7 +1314,7 @@ function centerOn(id) {
 function zoomAt(factor, cx, cy) {
   var r = $('#canvas').getBoundingClientRect();
   if (cx == null) { cx = r.left + r.width / 2; cy = r.top + r.height / 2; }
-  var k2 = Math.max(0.25, Math.min(2.5, view.k * factor));
+  var k2 = Math.max(0.1, Math.min(2.5, view.k * factor));
   var px = cx - r.left, py = cy - r.top;
   view.x = px - (px - view.x) * (k2 / view.k);
   view.y = py - (py - view.y) * (k2 / view.k);
@@ -1539,7 +1542,7 @@ function openExport() {
 
 /* ── meus grafos ── */
 function setGraph(g) {
-  G = g; undoStack = []; redoStack = []; selected = null; heights = {};
+  G = g; graphSeq++; undoStack = []; redoStack = []; selected = null; heights = {};
   renderAll();
   requestAnimationFrame(fitView);
 }
