@@ -1,12 +1,4 @@
-# Dependências baixadas pelo npm (gigante, se recria com "npm install")
-node_modules/
-
-# Arquivos gerados automaticamente pelo build
-dist/
-
-# Segredos e configurações locais
+# Arquivos locais que não devem ir para o GitHub
 .env
 *.log
-
-# Gerado pelo Vite a partir de src/
-apps-script/Index.html
+   

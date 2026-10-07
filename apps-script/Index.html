@@ -1,0 +1,2451 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grafo Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #13161b;
+  --surface: #1a1e25;
+  --raised: #222730;
+  --line: #2b313b;
+  --line-strong: #3a4250;
+  --text: #e3e6eb;
+  --muted: #98a1ae;
+  --faint: #677080;
+  --focus: #7fa6d9;
+  --danger: #d9776f;
+
+  --c-entrada: #a3abb8;
+  --c-trabalhador: #6f9fd8;
+  --c-supervisor: #d5a15e;
+  --c-entrega: #73b391;
+
+  --font: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  --topbar: 52px;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font: 13.5px/1.5 var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, textarea, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+::selection { background: rgba(127, 166, 217, .35); }
+
+.t-entrada { --c: var(--c-entrada); }
+.t-trabalhador { --c: var(--c-trabalhador); }
+.t-supervisor { --c: var(--c-supervisor); }
+.t-entrega { --c: var(--c-entrega); }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--c); flex: none; }
+
+/* Botões */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+}
+.btn:hover { background: var(--raised); border-color: var(--line-strong); }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn-primary { background: var(--text); border-color: var(--text); color: var(--bg); }
+.btn-primary:hover { background: #fff; border-color: #fff; }
+.btn-danger { background: var(--danger); border-color: var(--danger); color: var(--bg); }
+.btn-danger:hover { background: #e58a83; border-color: #e58a83; }
+.btn-quiet { border-color: transparent; color: var(--muted); }
+.btn-quiet:hover { color: var(--text); }
+.btn-sm { height: 28px; padding: 0 10px; font-size: 12.5px; }
+.mobile-only { display: none !important; }
+
+/* Barra superior */
+.topbar {
+  height: var(--topbar);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px 0 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 14px; letter-spacing: -.01em; white-space: nowrap; }
+.brand svg { width: 20px; height: 20px; }
+.title { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 10px; }
+#graph-name {
+  width: 100%;
+  max-width: 340px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  font-weight: 500;
+  text-align: center;
+}
+#graph-name:hover { border-color: var(--line); }
+#graph-name:focus { outline: none; border-color: var(--focus); background: var(--bg); }
+.save-status { font-size: 12px; color: var(--faint); white-space: nowrap; }
+.save-status.err { color: var(--danger); }
+.actions { display: flex; align-items: center; gap: 6px; }
+.actions .divider { width: 1px; height: 20px; background: var(--line); margin: 0 4px; }
+.user { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: var(--muted); }
+
+/* Área de trabalho */
+.workspace { display: grid; grid-template-columns: 232px 1fr 340px; height: calc(100% - var(--topbar)); }
+
+.sidebar { overflow: auto; padding: 16px 12px; border-right: 1px solid var(--line); background: var(--surface); }
+.sidebar h2 { margin: 0 4px 10px; font-size: 12.5px; font-weight: 500; color: var(--muted); }
+.piece {
+  display: block;
+  margin-bottom: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  cursor: grab;
+  user-select: none;
+}
+.piece:hover { border-color: var(--c); }
+.piece-name { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+.piece-desc { display: block; margin-top: 3px; font-size: 12px; line-height: 1.4; color: var(--muted); }
+.howto { margin: 0; padding: 0 4px 0 20px; font-size: 12px; color: var(--muted); }
+.howto li { margin-bottom: 7px; }
+.sidebar .rule { height: 1px; margin: 18px 4px 16px; background: var(--line); }
+kbd {
+  display: inline-block;
+  padding: 0 5px;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  font: 500 11px/16px var(--mono);
+  color: var(--text);
+}
+
+/* Quadro */
+.canvas {
+  position: relative;
+  overflow: hidden;
+  touch-action: none;
+  background-color: var(--bg);
+  background-image: radial-gradient(circle, #272c35 1px, transparent 1.3px);
+}
+.canvas.panning { cursor: grabbing; }
+.world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.edges { position: absolute; left: -10000px; top: -10000px; width: 20000px; height: 20000px; overflow: visible; pointer-events: none; }
+.edge { fill: none; stroke: #4a5262; stroke-width: 1.6; }
+.edge.sel { stroke: var(--focus); stroke-width: 2.6; }
+.edge.temp { stroke: var(--focus); stroke-dasharray: 5 5; }
+.edge.dim { opacity: .15; }
+.edge-hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: pointer; }
+
+.node {
+  position: absolute;
+  width: 250px;
+  padding: 11px 14px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, .25);
+  cursor: grab;
+  user-select: none;
+  transition: opacity .15s;
+}
+.node:hover { border-color: var(--line-strong); }
+.node.sel { border-color: var(--c); box-shadow: 0 0 0 1px var(--c); }
+.node.dim { opacity: .2; }
+.node-type { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 500; color: var(--c); }
+.node-name { margin: 4px 0 3px; font-size: 14.5px; font-weight: 600; line-height: 1.3; letter-spacing: -.01em; word-break: break-word; }
+.node-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted);
+  white-space: pre-line;
+  word-break: break-word;
+}
+.node-text.empty { color: var(--faint); }
+.node-meta { margin-top: 8px; font-size: 12px; color: var(--faint); }
+.port {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin-top: -6px;
+  border: 2px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--bg);
+}
+.port.in { left: -7px; }
+.port.out { right: -7px; cursor: crosshair; }
+.port.out:hover { border-color: var(--c); background: var(--c); }
+
+.floating {
+  position: absolute;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+}
+.toolbar { left: 16px; bottom: 16px; display: flex; align-items: center; gap: 2px; padding: 4px; }
+.toolbar button {
+  height: 28px;
+  min-width: 28px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 500;
+  cursor: pointer;
+}
+.toolbar button:hover { background: var(--raised); color: var(--text); }
+.toolbar button.active { background: var(--raised); color: var(--text); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.toolbar svg { display: block; width: 14px; height: 14px; }
+.toolbar .zoom { min-width: 44px; font: 500 12px var(--mono); color: var(--muted); text-align: center; }
+.toolbar .divider { width: 1px; height: 18px; margin: 0 4px; background: var(--line); }
+
+.warnings { right: 16px; bottom: 16px; width: 330px; max-height: 42%; overflow: auto; padding: 10px 14px 12px; }
+.warnings-head { display: flex; justify-content: space-between; align-items: center; font-weight: 500; color: var(--c-supervisor); cursor: pointer; }
+.warnings-head svg { width: 14px; height: 14px; transition: transform .15s; }
+.warnings.collapsed .warnings-head svg { transform: rotate(-90deg); }
+.warnings ul { margin: 8px 0 0; padding-left: 16px; font-size: 12.5px; color: var(--muted); }
+.warnings li { margin-bottom: 5px; }
+.warnings li.click { cursor: pointer; }
+.warnings li.click:hover { color: var(--text); text-decoration: underline; }
+.warnings.collapsed ul { display: none; }
+
+.empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.empty-card { max-width: 340px; text-align: center; pointer-events: auto; }
+.empty-card h2 { margin: 0 0 6px; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+.empty-card p { margin: 0 0 16px; color: var(--muted); }
+
+/* Painel da direita */
+.inspector { overflow: auto; padding: 16px; border-left: 1px solid var(--line); background: var(--surface); }
+.inspector h2 { margin: 0 0 14px; font-size: 15px; font-weight: 600; }
+.inspector-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.type-tag { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: var(--c); }
+.inspector-head .btns { display: flex; gap: 6px; }
+.field { margin-bottom: 16px; }
+.field > label { display: block; margin-bottom: 6px; font-size: 12.5px; font-weight: 500; color: var(--muted); }
+.input, .field input[type=text], .field input[type=password], .field input[type=number], .field textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+}
+.field textarea { min-height: 80px; resize: vertical; line-height: 1.5; }
+.input:focus, .field input:focus, .field textarea:focus { outline: none; border-color: var(--focus); }
+.hint { margin: 6px 0 0; font-size: 12px; color: var(--faint); }
+.hint.warn { color: var(--danger); }
+.presets { margin-bottom: 16px; }
+.presets > p { margin: 0 0 8px; font-size: 12px; color: var(--faint); }
+.preset {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 8px 10px 8px 34px;
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.preset::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 11px;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 3px;
+}
+.preset:hover { border-color: var(--line-strong); }
+.preset.on { border-color: var(--c-supervisor); }
+.preset.on::before {
+  border-color: var(--c-supervisor);
+  background: var(--c-supervisor) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2 5 8.5l4.5-5' fill='none' stroke='%2313161b' stroke-width='1.8'/%3E%3C/svg%3E") center/10px no-repeat;
+}
+.preset b { display: block; font-weight: 500; }
+.preset span { font-size: 12px; color: var(--muted); }
+.rounds { display: flex; gap: 12px; align-items: flex-start; }
+.rounds input { width: 80px !important; flex: none; }
+details.advanced { margin-bottom: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+details.advanced summary { cursor: pointer; font-weight: 500; color: var(--muted); }
+details.advanced summary:hover { color: var(--text); }
+details.advanced .field { margin: 12px 0 0; }
+.links { margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+.links dt { color: var(--faint); }
+.links dd { margin: 0 0 8px; color: var(--text); }
+.summary { margin: 16px 0; font-size: 12.5px; color: var(--muted); }
+.summary dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0; }
+.summary dt { color: var(--faint); }
+.summary dd { margin: 0; color: var(--text); }
+
+/* Janelas */
+.backdrop { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(8, 10, 13, .6); }
+.modal {
+  display: flex;
+  flex-direction: column;
+  width: min(540px, 100%);
+  max-height: calc(100vh - 48px);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, .5);
+}
+.modal.wide { width: min(1000px, 100%); height: calc(100vh - 48px); }
+.modal.list { width: min(680px, 100%); }
+.modal header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 20px; }
+.modal h3 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+.modal .body { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: auto; padding: 0 20px 16px; }
+.modal footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 20px; border-top: 1px solid var(--line); }
+.modal footer .right { display: flex; gap: 8px; }
+.tabs { display: flex; gap: 2px; margin-bottom: 12px; padding: 3px; border-radius: 7px; background: var(--bg); align-self: flex-start; }
+.tab { height: 28px; padding: 0 12px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); font-weight: 500; cursor: pointer; }
+.tab:hover { color: var(--text); }
+.tab.on { background: var(--raised); color: var(--text); }
+.code {
+  flex: 1;
+  width: 100%;
+  min-height: 240px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font: 12px/1.6 var(--mono);
+  white-space: pre;
+  overflow: auto;
+  resize: none;
+}
+.code:focus { outline: none; border-color: var(--line-strong); }
+.meta { font-size: 12px; color: var(--faint); }
+.description { margin: 0 0 12px; font-size: 12.5px; color: var(--muted); }
+.dialog-message { margin: 0 0 12px; color: var(--muted); }
+
+.graph-list { display: flex; flex-direction: column; }
+.graph-row { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.graph-row:last-child { border-bottom: 0; }
+.graph-row .grow { flex: 1; min-width: 0; }
+.graph-row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; cursor: pointer; }
+.graph-row .name:hover { text-decoration: underline; }
+.graph-row .details { font-size: 12px; color: var(--faint); }
+.graph-row .open-now { color: var(--focus); }
+
+.help h4 { margin: 18px 0 6px; font-size: 13.5px; font-weight: 600; }
+.help h4:first-child { margin-top: 4px; }
+.help p, .help li { color: var(--muted); }
+.help ol { padding-left: 20px; }
+.help li { margin-bottom: 6px; }
+.help table { width: 100%; border-collapse: collapse; }
+.help td { padding: 7px 4px; border-bottom: 1px solid var(--line); vertical-align: top; color: var(--muted); }
+.help td:first-child { width: 42%; color: var(--text); }
+
+/* Login */
+.login {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background-color: var(--bg);
+  background-image: radial-gradient(circle, #272c35 1px, transparent 1.3px);
+  background-size: 22px 22px;
+}
+.login-card { width: min(360px, 100%); padding: 28px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 24px 64px rgba(0, 0, 0, .45); }
+.login-card .brand { margin-bottom: 18px; font-size: 16px; }
+.login-card .brand svg { width: 24px; height: 24px; }
+.login-card .lead { margin: 0 0 20px; color: var(--muted); }
+.login-card .btn-primary { width: 100%; height: 38px; justify-content: center; margin-top: 4px; }
+.login-error { min-height: 18px; margin: 0 0 8px; font-size: 12.5px; color: var(--danger); }
+.login-foot { margin: 18px 0 0; font-size: 12px; color: var(--faint); text-align: center; }
+
+.toast {
+  position: fixed;
+  left: 50%;
+  top: calc(var(--topbar) + 12px);
+  z-index: 80;
+  max-width: min(560px, 90vw);
+  padding: 10px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--raised);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
+  font-size: 13px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -8px);
+  transition: opacity .18s, transform .18s;
+}
+.toast.show { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+.toast a { color: var(--focus); }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+@media (max-width: 1280px) {
+  .workspace { grid-template-columns: 208px 1fr 300px; }
+  .user { display: none; }
+}
+@media (max-width: 980px) {
+  .workspace { grid-template-columns: 1fr; position: relative; overflow: hidden; }
+  .sidebar, .inspector { position: absolute; z-index: 5; top: 0; bottom: 0; }
+  .sidebar { width: 232px; transform: translateX(-100%); }
+  .inspector { right: 0; width: 300px; transform: translateX(100%); }
+  body.show-palette .sidebar, body.show-inspector .inspector { transform: none; }
+  .mobile-only { display: inline-flex !important; }
+  .actions .wide-only { display: none; }
+}
+@media (max-width: 700px) {
+  .topbar { gap: 6px; padding: 0 10px; }
+  .brand span, .title, #btn-help, .user, .actions .divider { display: none; }
+  .title { display: none !important; }
+  .actions { margin-left: auto; }
+  .toolbar { right: 16px; overflow-x: auto; }
+  .warnings { left: 16px; width: auto; bottom: 64px; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="1.5" y="7.5" width="5" height="5" rx="1.2" stroke="currentColor" stroke-width="1.5"/><rect x="13.5" y="2.5" width="5" height="5" rx="1.2" stroke="currentColor" stroke-width="1.5"/><rect x="13.5" y="12.5" width="5" height="5" rx="1.2" stroke="currentColor" stroke-width="1.5"/><path d="M6.5 10h3.5m0 0V5h3.5M10 10v5h3.5" stroke="currentColor" stroke-width="1.5"/></svg>
+    <span>Grafo Studio</span>
+  </div>
+  <button class="btn btn-sm mobile-only" id="btn-pal">Peças</button>
+  <div class="title">
+    <input id="graph-name" type="text" aria-label="Nome do grafo" spellcheck="false">
+    <span id="save-status" class="save-status" role="status"></span>
+  </div>
+  <nav class="actions">
+    <button class="btn btn-quiet" id="btn-help">Ajuda</button>
+    <button class="btn" id="btn-graphs">Meus grafos</button>
+    <button class="btn wide-only" id="btn-open-json">Importar JSON</button>
+    <button class="btn wide-only" id="btn-clear">Limpar</button>
+    <button class="btn btn-primary" id="btn-export">Exportar</button>
+    <button class="btn btn-sm mobile-only" id="btn-insp">Painel</button>
+    <span class="divider"></span>
+    <span class="user" id="user-email"></span>
+    <button class="btn btn-quiet" id="btn-logout">Sair</button>
+  </nav>
+</header>
+
+<main class="workspace">
+  <aside class="sidebar" id="palette">
+    <h2>Peças</h2>
+    <div class="piece t-entrada" draggable="true" tabindex="0" data-type="entrada" title="Arraste para o quadro ou clique">
+      <span class="piece-name"><i class="dot"></i>Entrada</span>
+      <span class="piece-desc">O pedido que o usuário fornece ao rodar. Opcional, no máximo uma por grafo.</span>
+    </div>
+    <div class="piece t-trabalhador" draggable="true" tabindex="0" data-type="trabalhador" title="Arraste para o quadro ou clique">
+      <span class="piece-name"><i class="dot"></i>Trabalhador</span>
+      <span class="piece-desc">Produz uma parte do trabalho.</span>
+    </div>
+    <div class="piece t-supervisor" draggable="true" tabindex="0" data-type="supervisor" title="Arraste para o quadro ou clique">
+      <span class="piece-name"><i class="dot"></i>Supervisor</span>
+      <span class="piece-desc">Avalia só o resultado e manda refazer quando não aprova.</span>
+    </div>
+    <div class="piece t-entrega" draggable="true" tabindex="0" data-type="entrega" title="Arraste para o quadro ou clique">
+      <span class="piece-name"><i class="dot"></i>Entrega</span>
+      <span class="piece-desc">Junta os resultados que chegam num único artefato.</span>
+    </div>
+    <div class="rule"></div>
+    <h2>Como usar</h2>
+    <ul class="howto">
+      <li>Arraste da bolinha direita de uma peça até outra para ligar as duas.</li>
+      <li>Clique numa peça para escrever as instruções dela.</li>
+      <li>Clique num fio para selecionar. Clique de novo para cortar.</li>
+      <li><kbd>Del</kbd> apaga e <kbd>Ctrl+D</kbd> duplica a peça selecionada.</li>
+      <li><kbd>Ctrl+Z</kbd> desfaz e <kbd>Ctrl+Shift+Z</kbd> refaz.</li>
+      <li>Arraste o fundo para mover o quadro e role para dar zoom.</li>
+    </ul>
+  </aside>
+
+  <section class="canvas" id="canvas" aria-label="Quadro do grafo">
+    <div class="world" id="world">
+      <svg class="edges" id="edges"><g id="edges-g" transform="translate(10000,10000)"></g></svg>
+      <div id="nodes"></div>
+    </div>
+    <div class="empty canvas-ui" id="empty">
+      <div class="empty-card">
+        <h2>Quadro vazio</h2>
+        <p>Arraste peças da coluna da esquerda e ligue umas às outras, ou abra um grafo de exemplo para ver como funciona.</p>
+        <button class="btn" id="btn-example-empty">Abrir exemplo</button>
+      </div>
+    </div>
+    <div class="floating toolbar canvas-ui">
+      <button id="z-out" aria-label="Diminuir zoom" title="Diminuir zoom"><svg viewBox="0 0 14 14"><path d="M3 7h8" stroke="currentColor" stroke-width="1.5"/></svg></button>
+      <span class="zoom" id="z-label">100%</span>
+      <button id="z-in" aria-label="Aumentar zoom" title="Aumentar zoom"><svg viewBox="0 0 14 14"><path d="M3 7h8M7 3v8" stroke="currentColor" stroke-width="1.5"/></svg></button>
+      <span class="divider"></span>
+      <button id="z-fit" title="Mostrar o grafo inteiro">Enquadrar</button>
+      <button id="z-arrange" title="Organizar as peças em colunas">Arrumar</button>
+      <button id="z-focus" title="Destacar só a cadeia da peça selecionada">Foco</button>
+      <span class="divider"></span>
+      <button id="z-undo" aria-label="Desfazer" title="Desfazer (Ctrl+Z)"><svg viewBox="0 0 14 14" fill="none"><path d="M5 3 2 6l3 3" stroke="currentColor" stroke-width="1.5"/><path d="M2.5 6H9a3 3 0 0 1 0 6H6" stroke="currentColor" stroke-width="1.5"/></svg></button>
+      <button id="z-redo" aria-label="Refazer" title="Refazer (Ctrl+Shift+Z)"><svg viewBox="0 0 14 14" fill="none"><path d="m9 3 3 3-3 3" stroke="currentColor" stroke-width="1.5"/><path d="M11.5 6H5a3 3 0 0 0 0 6h3" stroke="currentColor" stroke-width="1.5"/></svg></button>
+    </div>
+    <div class="floating warnings canvas-ui" id="warnings" hidden></div>
+  </section>
+
+  <aside class="inspector" id="inspector"></aside>
+</main>
+
+<div id="modal-root"></div>
+
+<section class="login" id="login" hidden aria-label="Entrar">
+  <form class="login-card" id="login-form" autocomplete="on">
+    <div class="brand">
+      <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="1.5" y="7.5" width="5" height="5" rx="1.2" stroke="currentColor" stroke-width="1.5"/><rect x="13.5" y="2.5" width="5" height="5" rx="1.2" stroke="currentColor" stroke-width="1.5"/><rect x="13.5" y="12.5" width="5" height="5" rx="1.2" stroke="currentColor" stroke-width="1.5"/><path d="M6.5 10h3.5m0 0V5h3.5M10 10v5h3.5" stroke="currentColor" stroke-width="1.5"/></svg>
+      <span>Grafo Studio</span>
+    </div>
+    <p class="lead">Entre para montar e abrir seus grafos de agentes.</p>
+    <div class="field"><label for="l-user">Usuário</label><input type="text" id="l-user" name="username" autocomplete="username" required></div>
+    <div class="field"><label for="l-pass">Senha</label><input type="password" id="l-pass" name="password" autocomplete="current-password" required></div>
+    <p class="login-error" id="l-err" role="alert"></p>
+    <button class="btn btn-primary" type="submit" id="l-btn">Entrar</button>
+    <p class="login-foot">O acesso é liberado pelo administrador.</p>
+  </form>
+</section>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+// Modelo do grafo, validação, layout e exportadores. Não depende da interface.
+
+const TIPOS = {
+  entrada: { label: 'Entrada', kind: 'ENTRADA' },
+  trabalhador: { label: 'Trabalhador', kind: 'TRABALHADOR' },
+  supervisor: { label: 'Supervisor', kind: 'SUPERVISOR' },
+  entrega: { label: 'Entrega', kind: 'ENTREGA' },
+};
+
+// O texto de cada preset é inserido e removido das instruções por correspondência exata.
+// Alterar um texto aqui impede a remoção em grafos que já o contêm.
+const PRESETS = [
+  { id: 'wow', nome: 'Resultado WOW', sub: 'aprova só com reação "uau" sincera',
+    texto: '• Resultado WOW — só aprova se o artefato, visto do jeito que o usuário final vai vê-lo, provocar uma reação sincera de surpresa positiva. O crítico precisa apontar, em uma frase, o elemento que provoca essa reação e qual é o ponto mais fraco. "Correto e competente" não basta. Exceção: se a tarefa for puramente determinística (só existe uma saída certa), escreva "WOW: não se aplica" e aprove apenas pela correção conferida.\n  Como verificar: abrir ou rodar o resultado no estado em que o usuário vai recebê-lo e registrar a primeira reação antes de justificar. Nunca julgar só pelo código-fonte quando houver algo renderizado ou executável para ver.' },
+  { id: 'erros', nome: 'Sem erros', sub: 'caminho feliz, caso de borda e erro provocado',
+    texto: '• Sem erros — funciona sem falhas no caminho principal, num caso de borda escolhido de propósito e num caminho de erro provocado, com os códigos de saída conferidos. Nada de stubs, TODOs ou funções vazias.\n  Como verificar: executar de verdade os três caminhos e colar a saída observada. Ler o código não conta.' },
+  { id: 'referencia', nome: 'Tão bom quanto a referência', sub: 'comparação às cegas com um exemplar real',
+    texto: '• Tão bom quanto a referência — comparado lado a lado com o exemplar de referência indicado pelo autor (link ou arquivo), sem saber qual é qual, o artefato não perde em nenhum dos critérios declarados.\n  Como verificar: montar a comparação às cegas (A/B), julgar critério por critério e registrar o placar. Se nenhuma referência foi indicada, REPROVADO até que seja.' },
+  { id: 'testes', nome: 'Passa nos testes', sub: 'a suíte do projeto fica verde',
+    texto: '• Passa nos testes — a suíte de testes do projeto roda inteira e passa.\n  Como verificar: rodar o comando de testes e colar a saída literal no veredito. Se não existir suíte, REPROVADO até que exista uma cobrindo o essencial.' },
+];
+
+const NODE_W = 250;
+const COL_GAP = 110;
+const ROW_GAP = 36;
+const DEFAULT_H = 118;
+
+const nowIso = () => new Date().toISOString();
+
+function rand4() {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let s = '';
+  for (let i = 0; i < 4; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+function newGraph() {
+  const t = nowIso();
+  return {
+    version: 1, id: null, name: 'Meu grafo', objective: '', createdAt: t, updatedAt: t,
+    seq: 0, counters: { entrada: 0, trabalhador: 0, supervisor: 0, entrega: 0 }, nodes: [], edges: [],
+  };
+}
+
+const nodeById = (g, id) => g.nodes.find((n) => n.id === id) || null;
+const incoming = (g, id) => g.edges.filter((e) => e.target === id).map((e) => e.source);
+const outgoing = (g, id) => g.edges.filter((e) => e.source === id).map((e) => e.target);
+const byType = (g, type) => g.nodes.filter((n) => n.type === type);
+
+function makeNode(g, type, pos) {
+  g.seq = (g.seq || 0) + 1;
+  g.counters = g.counters || {};
+  g.counters[type] = (g.counters[type] || 0) + 1;
+  const node = {
+    id: type + '_' + g.seq + '_' + rand4(),
+    type,
+    name: type === 'entrada' ? 'Entrada' : TIPOS[type].label + ' ' + g.counters[type],
+    instructions: '',
+    position: { x: Math.round(pos.x), y: Math.round(pos.y) },
+  };
+  if (type === 'supervisor') { node.max_rounds = 3; node.presets = []; }
+  if (type === 'entrega') node.format = '';
+  g.nodes.push(node);
+  return node;
+}
+
+function addEdge(g, source, target) {
+  const edge = { id: 'fio_' + source + '__' + target, source, target };
+  g.edges.push(edge);
+  return edge;
+}
+
+function reaches(g, from, to) {
+  const seen = {};
+  const stack = [from];
+  while (stack.length) {
+    const current = stack.pop();
+    if (current === to) return true;
+    if (seen[current]) continue;
+    seen[current] = true;
+    stack.push(...outgoing(g, current));
+  }
+  return false;
+}
+
+function canConnect(g, s, t) {
+  if (s === t) return { ok: false, msg: 'Uma peça não pode se ligar a ela mesma.' };
+  const a = nodeById(g, s);
+  const b = nodeById(g, t);
+  if (!a || !b) return { ok: false, msg: 'Peça não encontrada.' };
+  if (b.type === 'entrada') return { ok: false, msg: 'Nada entra numa Entrada — ela é o começo do grafo.' };
+  if (g.edges.some((e) => e.source === s && e.target === t)) return { ok: false, msg: 'Essas peças já estão ligadas.', dup: true };
+  if (reaches(g, t, s)) return { ok: false, msg: 'Essa ligação criaria um ciclo. A volta do supervisor ao trabalhador já é automática.' };
+  return { ok: true };
+}
+
+// Trabalhadores que refazem quando o supervisor reprova, direto ou por uma cadeia de supervisores.
+function onReject(g, supId, seen = {}) {
+  if (seen[supId]) return [];
+  seen[supId] = true;
+  let result = [];
+  incoming(g, supId).forEach((src) => {
+    const n = nodeById(g, src);
+    if (!n) return;
+    if (n.type === 'trabalhador') result.push(src);
+    else if (n.type === 'supervisor') result = result.concat(onReject(g, src, seen));
+  });
+  return result.filter((x, i) => result.indexOf(x) === i);
+}
+
+function topoLevels(g) {
+  const ids = g.nodes.map((n) => n.id);
+  const indeg = {};
+  const level = {};
+  ids.forEach((id) => { indeg[id] = 0; level[id] = 0; });
+  g.edges.forEach((e) => { if (e.target in indeg && e.source in indeg) indeg[e.target]++; });
+  const queue = ids.filter((id) => indeg[id] === 0);
+  const seen = [];
+  while (queue.length) {
+    const id = queue.shift();
+    seen.push(id);
+    g.edges.forEach((e) => {
+      if (e.source !== id || !(e.target in indeg)) return;
+      level[e.target] = Math.max(level[e.target], level[id] + 1);
+      if (--indeg[e.target] === 0) queue.push(e.target);
+    });
+  }
+  ids.forEach((id) => { if (!seen.includes(id)) seen.push(id); });
+  const levels = [];
+  seen.forEach((id) => { (levels[level[id]] = levels[level[id]] || []).push(id); });
+  return levels.filter(Boolean).map((lv) => lv.sort((a, b) => nodeById(g, a).position.y - nodeById(g, b).position.y));
+}
+
+const topoOrder = (g) => [].concat(...topoLevels(g));
+
+function related(g, id) {
+  const set = { [id]: 1 };
+  const walk = (start, forward) => {
+    const stack = [start];
+    while (stack.length) {
+      const current = stack.pop();
+      (forward ? outgoing(g, current) : incoming(g, current)).forEach((x) => {
+        if (!set[x]) { set[x] = 1; stack.push(x); }
+      });
+    }
+  };
+  walk(id, true);
+  walk(id, false);
+  return set;
+}
+
+function validate(g) {
+  const warnings = [];
+  if (!String(g.objective || '').trim()) warnings.push({ msg: 'O grafo está sem objetivo — escreva, no painel à direita, o que ele precisa entregar.' });
+  if (!g.nodes.length) return warnings;
+  if (!byType(g, 'entrega').length) warnings.push({ msg: 'Falta uma Entrega — nada consolida o resultado no fim.' });
+  g.nodes.forEach((n) => {
+    const inc = incoming(g, n.id);
+    const out = outgoing(g, n.id);
+    const name = '"' + n.name + '"';
+    if (g.nodes.length > 1 && !inc.length && !out.length) warnings.push({ id: n.id, msg: name + ' está solta (sem nenhum fio).' });
+    else if (!out.length && n.type !== 'entrega') warnings.push({ id: n.id, msg: name + ' não entrega para ninguém.' });
+    if (!String(n.instructions || '').trim()) warnings.push({ id: n.id, msg: name + (n.type === 'entrada' ? ' está sem o pedido que entra.' : ' está sem instruções.') });
+    if (n.type === 'supervisor' && inc.length && !onReject(g, n.id).length) warnings.push({ id: n.id, msg: name + ' não tem nenhum Trabalhador acima dele — não há quem refazer.' });
+  });
+  const finals = byType(g, 'entrega').filter((n) => !outgoing(g, n.id).length);
+  if (finals.length > 1) {
+    warnings.push({ msg: 'O grafo termina em ' + finals.length + ' entregas (' + finals.map((n) => '"' + n.name + '"').join(', ') + '). Confira se é isso mesmo.' });
+  }
+  return warnings;
+}
+
+// Valida e normaliza um JSON importado. Lança Error com mensagem legível.
+function normalizeGraph(input) {
+  let o = input;
+  if (typeof o === 'string') {
+    try { o = JSON.parse(o); } catch (e) { throw new Error('O texto não é um JSON válido: ' + e.message); }
+  }
+  if (!o || typeof o !== 'object') throw new Error('O JSON precisa ser um objeto com "nodes" e "edges".');
+  if (!Array.isArray(o.nodes)) throw new Error('Falta a lista "nodes".');
+  if (!Array.isArray(o.edges)) throw new Error('Falta a lista "edges".');
+
+  const g = newGraph();
+  g.name = String(o.name || 'Grafo importado').slice(0, 120);
+  g.objective = String(o.objective || '');
+  const ids = {};
+  const counters = { entrada: 0, trabalhador: 0, supervisor: 0, entrega: 0 };
+  let maxSeq = 0;
+
+  o.nodes.forEach((n, i) => {
+    if (!n || !TIPOS[n.type]) throw new Error('A peça nº ' + (i + 1) + ' tem um tipo desconhecido: "' + (n && n.type) + '".');
+    const id = String(n.id || (n.type + '_' + (i + 1) + '_' + rand4()));
+    if (ids[id]) throw new Error('Há duas peças com o mesmo id: "' + id + '".');
+    ids[id] = 1;
+    const seqMatch = id.match(/_(\d+)_/);
+    if (seqMatch) maxSeq = Math.max(maxSeq, +seqMatch[1]);
+    const name = String(n.name || TIPOS[n.type].label).slice(0, 120);
+    const numMatch = name.match(/(\d+)\s*$/);
+    counters[n.type] = Math.max(counters[n.type] + (numMatch ? 0 : 1), numMatch ? +numMatch[1] : 0);
+    const p = n.position || {};
+    const node = { id, type: n.type, name, instructions: String(n.instructions || ''), position: { x: +p.x || 0, y: +p.y || 0 } };
+    if (n.type === 'supervisor') {
+      node.max_rounds = Math.min(50, Math.max(1, parseInt(n.max_rounds, 10) || 3));
+      node.presets = Array.isArray(n.presets) ? n.presets.filter((x) => PRESETS.some((pr) => pr.id === x)) : [];
+    }
+    if (n.type === 'entrega') node.format = String(n.format || '');
+    if (n.type === 'trabalhador' || n.type === 'supervisor') {
+      if (n.model) node.model = String(n.model);
+      if (n.tools) node.tools = String(n.tools);
+    }
+    g.nodes.push(node);
+  });
+
+  if (byType(g, 'entrada').length > 1) throw new Error('O grafo tem mais de uma Entrada — só pode haver uma.');
+  o.edges.forEach((e) => {
+    if (!e || !ids[e.source] || !ids[e.target]) return;
+    const check = canConnect(g, e.source, e.target);
+    if (check.ok) addEdge(g, e.source, e.target);
+    else if (!check.dup) throw new Error('Ligação inválida de "' + e.source + '" para "' + e.target + '": ' + check.msg);
+  });
+  g.seq = Math.max(maxSeq, g.nodes.length);
+  g.counters = counters;
+  return g;
+}
+
+// Colunas por nível, da esquerda para a direita, ordenadas pela altura média dos antecessores.
+function layoutGraph(g, heights = {}) {
+  const height = (id) => heights[id] || DEFAULT_H;
+  const anchor = (id) => {
+    const preds = incoming(g, id).map((p) => nodeById(g, p).position.y + height(p) / 2);
+    if (!preds.length) return nodeById(g, id).position.y;
+    return preds.reduce((a, b) => a + b, 0) / preds.length;
+  };
+  topoLevels(g).forEach((lv, col) => {
+    if (col > 0) lv.sort((a, b) => anchor(a) - anchor(b));
+    const total = lv.reduce((sum, id) => sum + height(id), 0) + ROW_GAP * (lv.length - 1);
+    let y = -total / 2;
+    lv.forEach((id) => {
+      nodeById(g, id).position = { x: col * (NODE_W + COL_GAP), y: Math.round(y) };
+      y += height(id) + ROW_GAP;
+    });
+  });
+  return g;
+}
+
+function slug(s) {
+  return String(s || 'grafo').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'grafo';
+}
+
+function exportText(g) {
+  const L = [];
+  const BAR = '══════════════════════════════════════════════════════════════';
+  const SEP = '──────────────────────────────────────────────────────────────';
+  const nm = (id) => '"' + nodeById(g, id).name + '"';
+  const lit = (s) => String(s || '').replace(/"""/g, '" " "');
+  const levels = topoLevels(g);
+  const order = [].concat(...levels);
+
+  L.push(BAR, 'GRAFO DE AGENTES — "' + g.name + '"', 'Gerado no Grafo Studio', BAR, '');
+  L.push('## OBJETIVO');
+  if (String(g.objective || '').trim()) L.push('"""', lit(g.objective.trim()), '"""');
+  else L.push('(objetivo não definido — pergunte ao usuário antes de começar)');
+  L.push('',
+    'Este objetivo vale para todas as peças. Ele vai no prompt de sistema de cada',
+    'agente, antes das instruções específicas. Se alguma instrução contradisser o',
+    'objetivo, prevalece o objetivo.', '');
+  L.push('## COMO ESTE TIME FUNCIONA',
+    'Três papéis, que nunca se acumulam:',
+    '  • TRABALHADOR — produz o artefato.',
+    '  • SUPERVISOR  — crítico cego: vê só o artefato, nunca o raciocínio de quem o fez;',
+    '                  aplica a barra escrita e aprova ou reprova.',
+    '  • ENTREGA     — consolida o que chega dos loops num artefato único.',
+    'Regra de ouro: ninguém aprova o próprio trabalho.',
+    'ENTRADA (opcional): o insumo que o usuário fornece na hora de rodar. Quando não',
+    'existe, as peças sem antecessor partem direto do objetivo.', '');
+
+  const shapes = { entrada: ['(["', '"])'], trabalhador: ['["', '"]'], supervisor: ['{{"', '"}}'], entrega: ['[("', '")]'] };
+  L.push('## FLUXO', '```mermaid', 'flowchart LR');
+  order.forEach((id) => {
+    const n = nodeById(g, id);
+    const shape = shapes[n.type];
+    L.push('  ' + id + shape[0] + n.name.replace(/"/g, '#quot;') + shape[1]);
+  });
+  g.edges.forEach((e) => L.push('  ' + e.source + ' --> ' + e.target));
+  byType(g, 'supervisor').forEach((s) => onReject(g, s.id).forEach((t) => L.push('  ' + s.id + ' -. reprova .-> ' + t)));
+  L.push('```', '');
+
+  L.push('## ORDEM DE EXECUÇÃO');
+  levels.forEach((lv, i) => {
+    L.push('Nível ' + (i + 1) + (lv.length > 1 ? ' (em paralelo)' : '') + ': ' + lv.map((id) => nodeById(g, id).name).join(', '));
+  });
+  L.push('');
+
+  L.push('## REGRAS DE EXECUÇÃO',
+    '1. Cada peça é um agente separado, com contexto próprio. Use subagentes se a',
+    '   ferramenta permitir; se não, simule a separação: como Supervisor, avalie só o',
+    '   artefato e ignore o raciocínio de quem construiu.',
+    '2. Execute por níveis; peças do mesmo nível rodam em paralelo. Uma peça só começa',
+    '   quando todas as peças de que ela recebe terminaram.',
+    '3. Supervisor responde na 1ª linha APROVADO ou REPROVADO; depois a evidência que',
+    '   ele mesmo produziu (saída de comando, captura de tela, conferência); depois as',
+    '   lacunas em ordem de impacto.',
+    '4. REPROVADO com rodadas sobrando → volta ao Trabalhador com as lacunas.',
+    '   Teto atingido → segue a melhor versão, com as ressalvas anotadas.',
+    '5. O que sai de um Supervisor para a frente é o ARTEFATO aprovado, não o parecer.',
+    '6. Texto entre aspas triplas é literal do autor: não resuma nem reescreva.',
+    '7. Ao terminar, mostre ao usuário o resultado de cada Entrega final e um resumo',
+    '   dos vereditos (quantas rodadas cada loop gastou e as ressalvas que ficaram).', '');
+
+  L.push('## PEÇAS');
+  order.forEach((id, i) => {
+    const n = nodeById(g, id);
+    const inc = incoming(g, id);
+    const out = outgoing(g, id);
+    L.push(SEP, 'PEÇA ' + (i + 1) + ' · ' + TIPOS[n.type].kind + ' · "' + n.name + '"', 'id: ' + n.id);
+    if (n.type !== 'entrada') L.push('Recebe de: ' + (inc.length ? inc.map(nm).join(', ') : '— (parte direto do objetivo)'));
+    L.push('Entrega para: ' + (out.length ? out.map(nm).join(', ') : '— fim do grafo'));
+    if (n.type === 'trabalhador' || n.type === 'supervisor') {
+      if (n.model) L.push('Modelo: ' + n.model);
+      if (n.tools) L.push('Ferramentas e acessos:', '"""', lit(n.tools.trim()), '"""');
+    }
+    if (n.type === 'entrada') {
+      L.push('', 'PEDIDO QUE ENTRA (literal do autor — não resuma, não reescreva):', '"""', lit(n.instructions.trim() || '(vazio — peça o insumo ao usuário)'), '"""');
+    } else if (n.type === 'trabalhador') {
+      L.push('', 'INSTRUÇÕES (literal do autor — não resuma, não reescreva):', '"""', lit(n.instructions.trim() || '(sem instruções — deduza do objetivo e do insumo recebido)'), '"""');
+    } else if (n.type === 'supervisor') {
+      const redo = onReject(g, id);
+      L.push('Máximo de rodadas: ' + (n.max_rounds || 3));
+      L.push(redo.length
+        ? 'Se reprovar: volta para ' + redo.map(nm).join(', ') + ' com as lacunas em ordem de impacto, e o trabalho é refeito.'
+        : 'Se reprovar: não há trabalhador acima para refazer — segue com as ressalvas anotadas.');
+      L.push('Esta peça julga e devolve; nunca reescreve o artefato.',
+        'Veredito sem evidência nomeada não vale. Na dúvida: REPROVADO.');
+      L.push('', 'BARRA (literal do autor — não resuma, não reescreva):', '"""', lit(n.instructions.trim() || '(sem barra escrita — use o objetivo do grafo como critério e seja rigoroso)'), '"""');
+    } else {
+      L.push('Formato: ' + (n.format || 'Markdown'));
+      L.push('', 'INSTRUÇÕES DE COMPILAÇÃO (literal do autor):', '"""', lit(n.instructions.trim() || '(sem instruções — junte os artefatos aprovados, uma seção por loop, sem perder informação)'), '"""');
+    }
+  });
+  L.push(SEP);
+  const warnings = validate(g);
+  if (warnings.length) {
+    L.push('', '## AVISOS DO EDITOR');
+    warnings.forEach((w) => L.push('- ' + w.msg));
+  }
+  return L.join('\n') + '\n';
+}
+
+function exportJSON(g) {
+  const copy = JSON.parse(JSON.stringify(g));
+  copy.nodes.forEach((n) => { if (n.type === 'supervisor') n.on_reject = onReject(g, n.id); });
+  return JSON.stringify(copy, null, 2);
+}
+
+const PY_KEYWORDS = 'False None True and as assert async await break class continue def del elif else except finally for from global if import in is lambda nonlocal not or pass raise return try while with yield'.split(' ');
+
+function exportPython(g) {
+  const order = topoOrder(g);
+  const used = {};
+  const PY = {};
+  order.forEach((id) => {
+    let p = id.replace(/[^A-Za-z0-9_]/g, '_');
+    if (!/^[A-Za-z_]/.test(p)) p = 'n_' + p;
+    if (PY_KEYWORDS.includes(p)) p += '_';
+    let name = p;
+    let k = 2;
+    while (used[name]) name = p + '_' + (k++);
+    used[name] = 1;
+    PY[id] = name;
+  });
+  const C = (id) => PY[id].toUpperCase();
+  const q = (s) => JSON.stringify(String(s));
+  const tq = (s) => '"""\n' + String(s || '').replace(/\\/g, '\\\\').replace(/"""/g, '\\"\\"\\"') + '\n"""';
+  const lst = (ids) => '[' + ids.map((i) => q(PY[i])).join(', ') + ']';
+  const eff = (id) => (nodeById(g, id).type === 'supervisor' ? 'ok_' + PY[id] : PY[id]);
+  const safeName = String(g.name).replace(/\\/g, '/').replace(/"""/g, '');
+
+  const B = [];
+  B.push(String.raw`"""
+Grafo de agentes — ${safeName}
+Gerado no Grafo Studio.
+
+Esqueleto executável em LangGraph: um nó por peça, aresta condicional em cada
+supervisor (aprova → segue / reprova → volta ao trabalhador) e teto de rodadas.
+A topologia, os prompts e os laços de supervisão já estão montados. Ajuste o
+modelo, o estado e o tratamento de erros ao seu caso.
+
+Instalação:
+    pip install langgraph langchain-openai
+    export LLM_API_KEY=...      # a SUA chave (OpenRouter ou outro provedor compatível com OpenAI)
+    export LLM_MODEL=...        # modelo padrão, ex.: um id de modelo do OpenRouter
+    export LLM_BASE_URL=...     # opcional; padrão https://openrouter.ai/api/v1
+
+Uso:
+    python grafo.py "texto do pedido"
+    python grafo.py --arquivo pedido.txt
+
+Observação: os campos "Ferramentas" entram no prompt como contexto. Para o agente
+usar ferramentas de verdade (navegador, APIs, MCPs), ligue-as ao cliente do modelo.
+"""
+
+import operator
+import os
+import sys
+from typing import Annotated, TypedDict
+
+from langgraph.graph import END, START, StateGraph
+
+
+# Regras fixas de todo supervisor.
+LER_NAO_VERIFICA = (
+    "Ler não é verificar: um veredito sem evidência nomeada não vale. "
+    "Na dúvida, REPROVADO."
+)
+FORMATO_VEREDITO = (
+    "Responda na primeira linha apenas APROVADO ou REPROVADO. Nas linhas seguintes, "
+    "a evidência que você mesmo produziu (saída de comando, conferência, captura) e, "
+    "se reprovar, as lacunas em ordem de impacto. Você julga e devolve: nunca reescreva o artefato."
+)
+
+# O objetivo do grafo inteiro: entra no prompt de sistema de TODOS os agentes.
+OBJETIVO = ${tq(String(g.objective || '').trim() || '(sem objetivo escrito — preencher antes de rodar)')}
+
+_clientes = {}
+
+
+def _llm(modelo=None):
+    """Cliente compatível com OpenAI (OpenRouter por padrão), criado sob demanda."""
+    from langchain_openai import ChatOpenAI
+
+    nome = modelo or os.environ.get("LLM_MODEL")
+    if not nome:
+        raise RuntimeError("Defina LLM_MODEL (ou o modelo da peça) antes de rodar.")
+    if nome not in _clientes:
+        _clientes[nome] = ChatOpenAI(
+            model=nome,
+            base_url=os.environ.get("LLM_BASE_URL", "https://openrouter.ai/api/v1"),
+            api_key=os.environ["LLM_API_KEY"],
+        )
+    return _clientes[nome]
+
+
+def _ask(funcao, mensagem, modelo=None):
+    """Chama o modelo com o objetivo do time + a função da peça no prompt de sistema."""
+    sistema = f"Objetivo do time:\n{OBJETIVO}\n\nSua função:\n{funcao}"
+    resposta = _llm(modelo).invoke([("system", sistema), ("human", mensagem)])
+    conteudo = resposta.content
+    return conteudo if isinstance(conteudo, str) else str(conteudo)
+
+
+def _merge(a, b):
+    return {**(a or {}), **(b or {})}
+
+
+class State(TypedDict, total=False):
+    pedido: str                                # insumo da Entrada ("" se não houver)
+    artefatos: Annotated[dict, _merge]         # id da peça -> artefato que ela passa adiante
+    feedback: Annotated[dict, _merge]          # id do trabalhador -> parecer pendente
+    rodadas: Annotated[dict, _merge]           # id do supervisor -> rodadas gastas
+    status: Annotated[dict, _merge]            # id do supervisor -> "refazer" | "seguir"
+    vereditos: Annotated[list, operator.add]   # histórico de pareceres
+`);
+
+  B.push('NOMES = {\n' + order.map((id) => '    ' + q(PY[id]) + ': ' + q(nodeById(g, id).name) + ',').join('\n') + '\n}\n');
+
+  B.push(String.raw`
+def _insumos(state, ids, rotular=False):
+    """Junta os artefatos das peças de origem (rotulados quando há mais de um)."""
+    arts = state.get("artefatos", {})
+    if not ids:
+        return ""
+    if len(ids) == 1 and not rotular:
+        return str(arts.get(ids[0], ""))
+    return "\n\n".join(f"### {NOMES.get(i, i)}\n{arts.get(i, '')}" for i in ids)
+
+
+def _reprovado(veredito):
+    """Na dúvida, reprovado: só aprova se a primeira linha começar com APROVADO."""
+    linhas = [l.strip() for l in str(veredito).splitlines() if l.strip()]
+    return not (linhas and linhas[0].upper().lstrip("*#_ ").startswith("APROVADO"))
+`);
+
+  order.forEach((id) => {
+    const n = nodeById(g, id);
+    const py = PY[id];
+    const c = C(id);
+    const inc = incoming(g, id);
+    const bar = '─'.repeat(Math.max(4, 60 - n.name.length));
+    const head = '\n# ── ' + TIPOS[n.type].kind + ' · ' + n.name.replace(/\n/g, ' ') + ' ' + bar + '\n';
+    const modelo = n.model ? q(n.model) : 'None';
+    const funcao = c + '_INSTRUCOES' + (n.tools ? ' + "\\n\\nFerramentas e acessos disponíveis:\\n" + ' + c + '_FERRAMENTAS' : '');
+    const ferramentas = n.tools ? c + '_FERRAMENTAS = ' + tq(n.tools.trim()) + '\n' : '';
+
+    if (n.type === 'entrada') {
+      B.push(head + c + '_PEDIDO = ' + tq(n.instructions.trim()) + '\n\n' + String.raw`
+def ${py}(state: State) -> dict:
+    """Ponto de entrada: o pedido de quem roda (ou o pedido padrão escrito no editor)."""
+    return {"artefatos": {"${py}": state.get("pedido") or ${c}_PEDIDO.strip()}}
+`);
+    } else if (n.type === 'trabalhador') {
+      B.push(head + c + '_INSTRUCOES = ' + tq(n.instructions.trim() || 'Execute a sua parte do trabalho a partir do objetivo e do insumo recebido.') + '\n' +
+        c + '_MODELO = ' + modelo + '\n' + ferramentas + '\n' + String.raw`
+def ${py}(state: State) -> dict:
+    mensagem = _insumos(state, ${lst(inc)}) or "Não há insumo anterior: parta do objetivo do time."
+    pendente = state.get("feedback", {}).get("${py}", "")
+    if pendente:
+        anterior = state.get("artefatos", {}).get("${py}", "")
+        mensagem += (
+            "\n\nSua versão anterior foi REPROVADA pelo supervisor. Corrija as lacunas apontadas."
+            f"\n\nPARECER DO SUPERVISOR:\n{pendente}\n\nSUA VERSÃO ANTERIOR:\n{anterior}"
+        )
+    resultado = _ask(${funcao}, mensagem, ${c}_MODELO)
+    return {"artefatos": {"${py}": resultado}, "feedback": {"${py}": ""}}
+`);
+    } else if (n.type === 'supervisor') {
+      B.push(head + c + '_INSTRUCOES = ' + tq(n.instructions.trim() || 'Use o objetivo do grafo como critério e seja rigoroso.') + '\n' +
+        c + '_MAX_RODADAS = ' + (n.max_rounds || 3) + '\n' + c + '_MODELO = ' + modelo + '\n' + ferramentas +
+        c + '_REFAZEM = ' + lst(onReject(g, id)) + '  # trabalhadores que refazem quando esta peça reprova\n\n' + String.raw`
+def ${py}(state: State) -> dict:
+    alvo = _insumos(state, ${lst(inc)})
+    gastas = state.get("rodadas", {}).get("${py}", 0) + 1
+    veredito = _ask(
+        ${funcao} + "\n\n" + LER_NAO_VERIFICA + "\n\n" + FORMATO_VEREDITO,
+        "ARTEFATO A JULGAR (você não vê o raciocínio de quem o construiu):\n\n" + alvo,
+        ${c}_MODELO,
+    )
+    reprovado = _reprovado(veredito)
+    saida = {
+        "vereditos": [f"[{NOMES['${py}']} · rodada {gastas}] {veredito}"],
+        "rodadas": {"${py}": gastas},
+    }
+    if reprovado and ${c}_REFAZEM and gastas < ${c}_MAX_RODADAS:
+        saida["status"] = {"${py}": "refazer"}
+        saida["feedback"] = {t: veredito for t in ${c}_REFAZEM}
+    else:
+        trabalho = alvo
+        if reprovado:
+            trabalho += f"\n\nRESSALVAS (seguiu sem passar na barra; teto de {${c}_MAX_RODADAS} rodadas):\n{veredito}"
+        saida["status"] = {"${py}": "seguir"}
+        saida["artefatos"] = {"${py}": trabalho}
+    return saida
+
+
+def ${py}_decide(state: State):
+    """Aprovado segue; reprovado volta para quem construiu, até o teto."""
+    if state.get("status", {}).get("${py}") == "refazer":
+        return ${c}_REFAZEM
+    return "ok_${py}"
+
+
+def ok_${py}(state: State) -> dict:
+    """Passagem: sincroniza ramos paralelos depois da aprovação."""
+    return {}
+`);
+    } else {
+      B.push(head + c + '_INSTRUCOES = ' + tq(n.instructions.trim() || 'Junte os artefatos recebidos num único documento, uma seção por origem, sem perder informação.') + '\n' +
+        c + '_FORMATO = ' + q(n.format || 'Markdown') + '\n\n' + String.raw`
+def ${py}(state: State) -> dict:
+    mensagem = (
+        f"FORMATO DA ENTREGA: {${c}_FORMATO}\n\nRESULTADOS A CONSOLIDAR:\n\n"
+        + _insumos(state, ${lst(inc)}, rotular=True)
+    )
+    return {"artefatos": {"${py}": _ask(${c}_INSTRUCOES, mensagem)}}
+`);
+    }
+  });
+
+  const M = ['', '', 'def montar():', '    b = StateGraph(State)'];
+  if (!order.length) M.push('    # grafo vazio: desenhe as peças no editor e exporte de novo');
+  order.forEach((id) => {
+    M.push('    b.add_node(' + q(PY[id]) + ', ' + PY[id] + ')');
+    if (nodeById(g, id).type === 'supervisor') M.push('    b.add_node(' + q('ok_' + PY[id]) + ', ok_' + PY[id] + ')');
+  });
+  M.push('');
+  order.forEach((id) => { if (!incoming(g, id).length) M.push('    b.add_edge(START, ' + q(PY[id]) + ')'); });
+  order.forEach((id) => {
+    const sources = incoming(g, id).map(eff);
+    if (!sources.length) return;
+    if (sources.length === 1) M.push('    b.add_edge(' + q(sources[0]) + ', ' + q(PY[id]) + ')');
+    else M.push('    b.add_edge([' + sources.map(q).join(', ') + '], ' + q(PY[id]) + ')  # espera todos os ramos');
+  });
+  order.forEach((id) => {
+    if (nodeById(g, id).type !== 'supervisor') return;
+    const targets = onReject(g, id).map((t) => q(PY[t])).concat([q('ok_' + PY[id])]);
+    M.push('    b.add_conditional_edges(' + q(PY[id]) + ', ' + PY[id] + '_decide, [' + targets.join(', ') + '])');
+  });
+  const sinks = order.filter((id) => !outgoing(g, id).length);
+  sinks.forEach((id) => M.push('    b.add_edge(' + q(eff(id)) + ', END)'));
+  M.push('    return b.compile()', '', '');
+  M.push('FINAIS = ' + lst(sinks) + '  # peças cujo artefato é o resultado do grafo');
+  B.push(M.join('\n'));
+
+  B.push(String.raw`
+
+def main():
+    args = sys.argv[1:]
+    if len(args) >= 2 and args[0] == "--arquivo":
+        with open(args[1], encoding="utf-8") as f:
+            pedido = f.read()
+    else:
+        pedido = " ".join(args)
+    grafo = montar()
+    final = grafo.invoke(
+        {"pedido": pedido, "artefatos": {}, "feedback": {}, "rodadas": {}, "status": {}, "vereditos": []},
+        {"recursion_limit": 500},
+    )
+    for peca in FINAIS:
+        caminho = f"saida_{peca}.md"
+        with open(caminho, "w", encoding="utf-8") as f:
+            f.write(str(final.get("artefatos", {}).get(peca, "")))
+        print(f"{NOMES[peca]} -> {caminho}")
+    with open("vereditos.md", "w", encoding="utf-8") as f:
+        f.write("\n\n---\n\n".join(final.get("vereditos", [])))
+    print("Vereditos -> vereditos.md")
+
+
+if __name__ == "__main__":
+    main()
+`);
+  return B.join('\n');
+}
+
+function buildExample() {
+  const g = newGraph();
+  g.name = 'Exemplo — monitoramento de concorrentes';
+  g.objective = 'Um app de monitoramento de concorrentes rodando em produção: ele coleta periodicamente o que os concorrentes diretos publicam (redes sociais, sites, anúncios) e mostra isso num painel simples, com acesso pago.';
+  const origin = { x: 0, y: 0 };
+  const presetText = (id) => PRESETS.find((p) => p.id === id).texto;
+  const worker = (instructions) => {
+    const n = makeNode(g, 'trabalhador', origin);
+    n.instructions = instructions;
+    return n;
+  };
+  const supervisor = (instructions, presets = []) => {
+    const n = makeNode(g, 'supervisor', origin);
+    n.presets = presets;
+    n.instructions = [instructions].concat(presets.map(presetText)).filter(Boolean).join('\n\n');
+    return n;
+  };
+  const delivery = (instructions, format) => {
+    const n = makeNode(g, 'entrega', origin);
+    n.instructions = instructions;
+    n.format = format;
+    return n;
+  };
+  const competitorBar = 'São mesmo concorrentes diretos? Vale a pena incluí-los no relatório?\n\nMETODOLOGIA DE VERIFICAÇÃO\nConferir, para cada concorrente: produto (é de fato similar?), faturamento (se houver dado público) e número de seguidores. Concorrentes adjacentes ficam de fora.';
+
+  const input = makeNode(g, 'entrada', origin);
+  input.instructions = 'App de monitoramento dos concorrentes do meu negócio: <descreva aqui o negócio, a cidade e o público>.';
+
+  const t1 = worker('Pesquisar concorrentes no Instagram.\n\nCOMO: usar um scraper de redes sociais (ex.: Apify). Para cada concorrente, trazer perfil, número de seguidores, frequência de posts e temas recorrentes.');
+  const t2 = worker('Pesquisar concorrentes em sites oficiais, Google e APIs de busca (ex.: SerpAPI, Tavily). Para cada um, trazer site, produtos, preços públicos e posicionamento.');
+  const t3 = worker('Pesquisar blogs, biblioteca de anúncios do Facebook e Google Ads. Trazer os anúncios ativos de cada concorrente e as mensagens que mais se repetem.');
+  const s1 = supervisor(competitorBar);
+  const s2 = supervisor(competitorBar);
+  const s3 = supervisor(competitorBar);
+  const e1 = delivery('Relatório com as informações de todas as pesquisas: uma seção por concorrente, com as fontes de cada dado.', 'Markdown');
+
+  const t4 = worker('Scraping. Testar, nesta ordem: requisição HTTP simples, bibliotecas de scraping, serviços de crawling (ex.: Firecrawl, Apify). Validar cada link do relatório e escolher a abordagem que funciona para cada fonte.');
+  const s4 = supervisor('Durabilidade (a abordagem deve continuar funcionando por meses), custo mínimo e velocidade. Hierarquia: custo menor pesa mais que velocidade.\n\nComo verificar: rodar a coleta de verdade em cada link e colar a saída.');
+  const t5 = worker('UX/UI e front-end do painel: layout, paleta, interatividade e responsividade.');
+  const s5 = supervisor('', ['wow']);
+  const t6 = worker('Back-end e banco de dados: API que guarda o histórico coletado e serve o painel.');
+  const s6 = supervisor('', ['erros', 'testes']);
+  const e2 = delivery('Integrar scraping, front-end e back-end num app local que roda com um comando. Incluir instruções para rodar.', 'Repositório com README');
+
+  const t7 = worker('Gateway de pagamentos: integrar a cobrança da assinatura, com chaves via variáveis de ambiente.');
+  const s7 = supervisor('A verificação inclui aprovar uma compra de teste com um cartão de teste do gateway.', ['erros']);
+  const t8 = worker('Deploy em VPS com domínio próprio, HTTPS e coleta agendada.');
+  const s8 = supervisor('O app precisa abrir pelo domínio público com HTTPS e a coleta agendada precisa rodar uma vez com sucesso.', ['erros']);
+  const e3 = delivery('Relatório final: o que foi publicado, onde, como operar e o que ficou como ressalva.', 'Markdown');
+
+  [[input, t1], [input, t2], [input, t3], [t1, s1], [t2, s2], [t3, s3], [s1, e1], [s2, e1], [s3, e1],
+    [e1, t4], [e1, t5], [e1, t6], [t4, s4], [t5, s5], [t6, s6], [s4, e2], [s5, e2], [s6, e2],
+    [e2, t7], [e2, t8], [t7, s7], [t8, s8], [s7, e3], [s8, e3]].forEach(([a, b]) => addEdge(g, a.id, b.id));
+  return layoutGraph(g, {});
+}
+
+
+// Interface
+
+const $ = (selector, root = document) => root.querySelector(selector);
+const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+
+const ICON_CHEVRON = '<svg viewBox="0 0 14 14" fill="none"><path d="m3.5 5.5 3.5 3.5 3.5-3.5" stroke="currentColor" stroke-width="1.5"/></svg>';
+
+let G = newGraph();
+let selected = null;            // { kind: 'node' | 'edge', id }
+let view = { x: 120, y: 120, k: 1 };
+let focusMode = false;
+let undoStack = [];
+let redoStack = [];
+let heights = {};
+let saving = false;
+let pendingSave = false;
+let saveTimer = null;
+let graphSeq = 0;               // muda a cada grafo aberto; distingue "outro grafo" de "mesmo grafo após desfazer"
+let changeCount = 0;            // conta alterações; diz se algo mudou enquanto o servidor salvava
+let currentUser = '';
+
+
+// Servidor. Fora do Google, um substituto guarda tudo no navegador para testes locais.
+
+const LocalApi = {
+  _all() { try { return JSON.parse(localStorage.getItem('gs_grafos') || '{}'); } catch (e) { return {}; } },
+  _put(all) { try { localStorage.setItem('gs_grafos', JSON.stringify(all)); } catch (e) { /* sem armazenamento */ } },
+  _last(value) {
+    try {
+      if (value === undefined) return localStorage.getItem('gs_last');
+      if (value === null) localStorage.removeItem('gs_last');
+      else localStorage.setItem('gs_last', value);
+    } catch (e) { return null; }
+  },
+  bootstrap() {
+    const all = this._all();
+    const last = this._last();
+    let helpSeen = false;
+    try { helpSeen = !!localStorage.getItem('gs_help'); } catch (e) { /* sem armazenamento */ }
+    return { email: 'modo local', graph: last && all[last] ? JSON.stringify(all[last]) : null, helpSeen };
+  },
+  markHelpSeen() { try { localStorage.setItem('gs_help', '1'); } catch (e) { /* sem armazenamento */ } return true; },
+  listGraphs() {
+    const all = this._all();
+    return Object.keys(all)
+      .map((id) => ({ id, name: all[id].name, updatedAt: all[id].updatedAt, pieces: all[id].nodes.length, wires: all[id].edges.length }))
+      .sort((a, b) => (b.updatedAt < a.updatedAt ? -1 : 1));
+  },
+  loadGraph(id) {
+    const all = this._all();
+    if (!all[id]) throw new Error('Grafo não encontrado.');
+    this._last(id);
+    return JSON.stringify(all[id]);
+  },
+  saveGraph(json) {
+    const g = JSON.parse(json);
+    const all = this._all();
+    if (!g.id) g.id = 'local_' + Date.now();
+    g.updatedAt = nowIso();
+    all[g.id] = g;
+    this._put(all);
+    this._last(g.id);
+    return { id: g.id, updatedAt: g.updatedAt };
+  },
+  renameGraph(id, name) {
+    const all = this._all();
+    all[id].name = name;
+    this._put(all);
+    return { id, name };
+  },
+  duplicateGraph(id) {
+    const all = this._all();
+    const g = JSON.parse(JSON.stringify(all[id]));
+    g.id = 'local_' + Date.now();
+    g.name = 'Cópia de ' + g.name;
+    g.updatedAt = nowIso();
+    all[g.id] = g;
+    this._put(all);
+    return { id: g.id, name: g.name };
+  },
+  deleteGraph(id) {
+    const all = this._all();
+    delete all[id];
+    this._put(all);
+    if (this._last() === id) this._last(null);
+    return true;
+  },
+  forgetCurrent() { this._last(null); return true; },
+  prepararDownload() { throw new Error('O link de download só funciona com o app publicado no Google. Use "Baixar arquivo".'); },
+};
+
+const ONLINE = !!(window.google && google.script && google.script.run);
+let TOKEN = null;
+try { TOKEN = localStorage.getItem('gs_token'); } catch (e) { /* sem armazenamento */ }
+
+function setToken(token) {
+  TOKEN = token;
+  try {
+    if (token) localStorage.setItem('gs_token', token);
+    else localStorage.removeItem('gs_token');
+  } catch (e) { /* sem armazenamento */ }
+}
+
+// Chama uma função do servidor. Toda função, exceto login, recebe o token da sessão como 1º argumento.
+function api(fn, ...args) {
+  if (ONLINE) {
+    if (fn !== 'login') args.unshift(TOKEN);
+    return new Promise((resolve, reject) => {
+      const runner = google.script.run.withSuccessHandler(resolve).withFailureHandler((err) => {
+        const msg = String((err && err.message) || err);
+        if (msg.includes('SESSAO_EXPIRADA')) {
+          sessionExpired();
+          reject(new Error('Sua sessão expirou. Entre de novo.'));
+          return;
+        }
+        reject(new Error(msg.replace(/^Exception:\s*/, '')));
+      });
+      runner[fn](...args);
+    });
+  }
+  try { return Promise.resolve(LocalApi[fn](...args)); } catch (e) { return Promise.reject(e); }
+}
+
+
+// Login
+
+function showLogin(message) {
+  closeModal();
+  $('#login').hidden = false;
+  $('#l-err').textContent = message || '';
+  $('#l-pass').value = '';
+  setTimeout(() => ($('#l-user').value ? $('#l-pass') : $('#l-user')).focus(), 30);
+}
+
+let expiredShown = false;
+function sessionExpired() {
+  if (expiredShown) return;
+  expiredShown = true;
+  clearTimeout(saveTimer);
+  saveTimer = null;
+  pendingSave = false;
+  setToken(null);
+  showLogin('Sua sessão expirou. Entre de novo. As alterações não salvas serão oferecidas para recuperação.');
+}
+
+$('#login-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const button = $('#l-btn');
+  const error = $('#l-err');
+  error.textContent = '';
+  button.disabled = true;
+  button.textContent = 'Entrando…';
+  api('login', $('#l-user').value, $('#l-pass').value)
+    .then((r) => {
+      setToken(r.token);
+      expiredShown = false;
+      $('#login').hidden = true;
+      $('#l-pass').value = '';
+      start();
+    })
+    .catch((err) => { error.textContent = err.message; $('#l-pass').select(); })
+    .then(() => { button.disabled = false; button.textContent = 'Entrar'; });
+});
+
+function logout() {
+  flushSave().catch(() => {}).then(() => {
+    const token = TOKEN;
+    setToken(null);
+    clearDraft();
+    currentUser = '';
+    if (token) google.script.run.logout(token);
+    setGraph(newGraph());
+    $('#user-email').textContent = '';
+    setStatus('');
+    showLogin('');
+  });
+}
+
+
+// Histórico (desfazer e refazer)
+
+const snapshot = () => JSON.stringify(G);
+
+function pushHistory() {
+  undoStack.push(snapshot());
+  if (undoStack.length > 100) undoStack.shift();
+  redoStack.length = 0;
+}
+
+function commitBefore(before) {
+  if (!before || before === snapshot()) return;
+  undoStack.push(before);
+  if (undoStack.length > 100) undoStack.shift();
+  redoStack.length = 0;
+}
+
+function restore(json) {
+  const id = G.id;
+  G = JSON.parse(json);
+  G.id = id;
+  if (selected && selected.kind === 'node' && !nodeById(G, selected.id)) selected = null;
+  if (selected && selected.kind === 'edge' && !G.edges.some((e) => e.id === selected.id)) selected = null;
+  renderAll();
+  scheduleSave();
+}
+
+function undo() {
+  if (!undoStack.length) return toast('Nada para desfazer.');
+  redoStack.push(snapshot());
+  restore(undoStack.pop());
+}
+
+function redo() {
+  if (!redoStack.length) return toast('Nada para refazer.');
+  undoStack.push(snapshot());
+  restore(redoStack.pop());
+}
+
+
+// Rascunho no navegador: cópia instantânea para nada se perder se a aba fechar antes de salvar.
+
+const DRAFT_KEY = 'gs_draft';
+
+function saveDraft() {
+  if (!currentUser) return;
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ user: currentUser, at: nowIso(), graph: G })); } catch (e) { /* sem armazenamento */ }
+}
+
+function readDraft() {
+  try {
+    const draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null');
+    return draft && draft.user === currentUser && draft.graph ? draft : null;
+  } catch (e) { return null; }
+}
+
+function clearDraft() {
+  try { localStorage.removeItem(DRAFT_KEY); } catch (e) { /* sem armazenamento */ }
+}
+
+function offerDraft(draft) {
+  const date = new Date(draft.at);
+  const when = date.toLocaleDateString('pt-BR') + ' às ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const pieces = plural((draft.graph.nodes || []).length, 'peça', 'peças');
+  dialog({
+    title: 'Recuperar "' + (draft.graph.name || 'Meu grafo') + '"?',
+    message: 'A página foi fechada antes de salvar as alterações de ' + when + ' (' + pieces + '). ' +
+      'Recuperar abre essa versão e a salva. Descartar mantém o que já estava salvo.',
+    ok: 'Recuperar',
+    cancel: 'Descartar',
+  }).then((ok) => {
+    if (!ok) { clearDraft(); return; }
+    setGraph(draft.graph);
+    scheduleSave();
+    toast('Alterações recuperadas.');
+  });
+}
+
+
+// Salvamento automático
+
+const hasContent = (g) => g.nodes.length || String(g.objective || '').trim() || g.id;
+
+function setStatus(text, isError) {
+  const el = $('#save-status');
+  el.textContent = text;
+  el.classList.toggle('err', !!isError);
+}
+
+function scheduleSave() {
+  if (!hasContent(G)) { setStatus(''); return; }
+  setStatus('alterações não salvas');
+  changeCount++;
+  saveDraft();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveNow, 1200);
+}
+
+function saveNow() {
+  clearTimeout(saveTimer);
+  if (!hasContent(G)) return Promise.resolve();
+  if (saving) { pendingSave = true; return Promise.resolve(); }
+  saving = true;
+  const ref = G;
+  const seq = graphSeq;
+  const version = changeCount;
+  setStatus('salvando…');
+  return api('saveGraph', JSON.stringify(ref))
+    .then((r) => {
+      ref.id = r.id;
+      ref.updatedAt = r.updatedAt;
+      // Desfazer troca o objeto G por uma cópia; se ainda for o mesmo grafo, a cópia também recebe o id.
+      if (seq === graphSeq && G !== ref && !G.id) { G.id = r.id; G.updatedAt = r.updatedAt; }
+      if (version === changeCount) clearDraft(); else saveDraft();
+      setStatus('salvo');
+    })
+    .catch((err) => {
+      setStatus('erro ao salvar', true);
+      toast('Não foi possível salvar: ' + esc(err.message));
+    })
+    .then(() => {
+      saving = false;
+      if (pendingSave) { pendingSave = false; return saveNow(); }
+    });
+}
+
+function flushSave() {
+  if (saveTimer || pendingSave || saving) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    return saveNow().then(() => {
+      if (saving) return new Promise((r) => setTimeout(r, 400)).then(flushSave);
+    });
+  }
+  return Promise.resolve();
+}
+
+
+// Desenho do quadro
+
+function renderAll() {
+  renderTitle();
+  renderNodes();
+  renderInspector();
+  renderWarnings();
+}
+
+function renderTitle() {
+  const el = $('#graph-name');
+  if (document.activeElement !== el) el.value = G.name;
+}
+
+function previewOf(n) {
+  const text = String(n.instructions || '').trim();
+  return text.length > 180 ? text.slice(0, 180) + '…' : text;
+}
+
+function focusSet() {
+  return focusMode && selected && selected.kind === 'node' && nodeById(G, selected.id) ? related(G, selected.id) : null;
+}
+
+function nodeHtml(n, focus) {
+  const isSelected = selected && selected.kind === 'node' && selected.id === n.id;
+  const preview = previewOf(n);
+  const classes = ['node', 't-' + n.type];
+  if (isSelected) classes.push('sel');
+  if (focus && !focus[n.id]) classes.push('dim');
+
+  let meta = '';
+  if (n.type === 'supervisor') meta = 'Até ' + plural(n.max_rounds || 3, 'rodada', 'rodadas');
+  else if (n.type === 'entrega' && n.format) meta = 'Formato: ' + esc(n.format);
+  if (n.model) meta += (meta ? ', modelo ' : 'Modelo ') + esc(n.model);
+
+  return '<div class="' + classes.join(' ') + '" data-id="' + esc(n.id) + '" style="left:' + n.position.x + 'px;top:' + n.position.y + 'px">' +
+    (n.type !== 'entrada' ? '<span class="port in" title="Entrada"></span>' : '') +
+    '<span class="port out" title="Arraste para ligar"></span>' +
+    '<div class="node-type"><i class="dot"></i>' + TIPOS[n.type].label + '</div>' +
+    '<div class="node-name">' + esc(n.name) + '</div>' +
+    '<div class="node-text' + (preview ? '' : ' empty') + '">' + (preview ? esc(preview) : 'Sem instruções. Clique para escrever.') + '</div>' +
+    (meta ? '<div class="node-meta">' + meta + '</div>' : '') +
+    '</div>';
+}
+
+function renderNodes() {
+  const focus = focusSet();
+  $('#nodes').innerHTML = G.nodes.map((n) => nodeHtml(n, focus)).join('');
+  $$('#nodes .node').forEach((el) => { heights[el.dataset.id] = el.offsetHeight; });
+  $('#empty').hidden = G.nodes.length > 0;
+  renderEdges();
+}
+
+function portPos(n, side) {
+  const h = heights[n.id] || DEFAULT_H;
+  return { x: n.position.x + (side === 'out' ? NODE_W : 0), y: n.position.y + h / 2 };
+}
+
+function curve(a, b) {
+  const dx = Math.max(50, Math.abs(b.x - a.x) / 2);
+  return 'M' + a.x + ' ' + a.y + ' C' + (a.x + dx) + ' ' + a.y + ' ' + (b.x - dx) + ' ' + b.y + ' ' + b.x + ' ' + b.y;
+}
+
+function renderEdges() {
+  const focus = focusSet();
+  let html = '';
+  G.edges.forEach((e) => {
+    const a = nodeById(G, e.source);
+    const b = nodeById(G, e.target);
+    if (!a || !b) return;
+    const d = curve(portPos(a, 'out'), portPos(b, 'in'));
+    const isSelected = selected && selected.kind === 'edge' && selected.id === e.id;
+    const dim = focus && !(focus[e.source] && focus[e.target]);
+    html += '<path class="edge' + (isSelected ? ' sel' : '') + (dim ? ' dim' : '') + '" d="' + d + '"/>' +
+      '<path class="edge-hit" data-id="' + esc(e.id) + '" d="' + d + '"><title>Clique para selecionar, clique de novo para cortar</title></path>';
+  });
+  html += '<path id="temp-edge" class="edge temp" d=""/>';
+  $('#edges-g').innerHTML = html;
+}
+
+function applyView() {
+  $('#world').style.transform = 'translate(' + view.x + 'px,' + view.y + 'px) scale(' + view.k + ')';
+  const canvas = $('#canvas');
+  canvas.style.backgroundSize = (22 * view.k) + 'px ' + (22 * view.k) + 'px';
+  canvas.style.backgroundPosition = view.x + 'px ' + view.y + 'px';
+  $('#z-label').textContent = Math.round(view.k * 100) + '%';
+}
+
+function renderWarnings() {
+  const warnings = validate(G);
+  const box = $('#warnings');
+  if (!warnings.length || !G.nodes.length) { box.hidden = true; return; }
+  box.hidden = false;
+  box.innerHTML = '<div class="warnings-head" id="warn-toggle"><span>Antes de exportar (' + warnings.length + ')</span>' + ICON_CHEVRON + '</div>' +
+    '<ul>' + warnings.map((w) => '<li' + (w.id ? ' class="click" data-id="' + esc(w.id) + '"' : '') + '>' + esc(w.msg) + '</li>').join('') + '</ul>';
+}
+
+
+// Painel da direita
+
+function field(label, control, hint, warnId) {
+  return '<div class="field"><label>' + label + '</label>' + control +
+    (hint ? '<p class="hint">' + hint + '</p>' : '') +
+    (warnId ? '<p class="hint warn" id="' + warnId + '" hidden></p>' : '') + '</div>';
+}
+
+function linksHtml(n) {
+  const name = (id) => { const x = nodeById(G, id); return x ? esc(x.name) : '?'; };
+  const list = (ids) => (ids.length ? ids.map(name).join(', ') : 'Nenhuma');
+  let html = '<dl class="links"><dt>Recebe de</dt><dd>' + list(incoming(G, n.id)) + '</dd>' +
+    '<dt>Entrega para</dt><dd>' + list(outgoing(G, n.id)) + '</dd>';
+  if (n.type === 'supervisor') html += '<dt>Se reprovar, refaz</dt><dd>' + list(onReject(G, n.id)) + '</dd>';
+  return html + '</dl>';
+}
+
+function renderGraphPanel(el) {
+  const count = (type) => byType(G, type).length;
+  const starts = G.nodes.filter((x) => !incoming(G, x.id).length).map((x) => esc(x.name));
+  el.innerHTML = '<h2>Grafo</h2>' +
+    field('Objetivo', '<textarea id="f-obj" rows="7" placeholder="O que o time inteiro precisa entregar no fim. Exemplo: uma página de vendas pronta para publicar, que aguente a comparação com a do principal concorrente.">' + esc(G.objective) + '</textarea>',
+      'O objetivo orienta todas as peças: abre o texto exportado e entra no prompt de cada agente, antes das instruções.') +
+    '<div class="summary"><dl>' +
+      '<dt>Trabalhadores</dt><dd>' + count('trabalhador') + '</dd>' +
+      '<dt>Supervisores</dt><dd>' + count('supervisor') + '</dd>' +
+      '<dt>Entregas</dt><dd>' + count('entrega') + '</dd>' +
+      (count('entrada') ? '<dt>Entrada</dt><dd>1</dd>' : '') +
+      '<dt>Fios</dt><dd>' + G.edges.length + '</dd>' +
+      '<dt>Começa por</dt><dd>' + (starts.length ? starts.join(', ') : 'Nenhuma peça') + '</dd>' +
+    '</dl></div>' +
+    '<p class="hint">Clique numa peça do quadro para editar as instruções dela.</p>';
+  bindText($('#f-obj'), (v) => { G.objective = v; }, () => { renderWarnings(); scheduleSave(); });
+}
+
+function nodeFields(n) {
+  const t = n.type;
+  let html = field('Nome', '<input type="text" id="i-name" value="' + esc(n.name) + '">');
+
+  if (t === 'entrada') {
+    html += field('Pedido', '<textarea id="i-instr" rows="9" placeholder="O que o usuário fornece ao rodar. Exemplo: o nome do negócio, a cidade e o público.">' + esc(n.instructions) + '</textarea>',
+      'É o insumo inicial do grafo, informado por quem roda o time.');
+  } else if (t === 'trabalhador') {
+    html += field('Instruções', '<textarea id="i-instr" rows="12" placeholder="O que esta peça precisa produzir, e como. Exemplo: escreva a página de vendas inteira, com título, prova e oferta, em português do Brasil e tom direto.">' + esc(n.instructions) + '</textarea>',
+      'Escreva como se instruísse uma pessoa. Isto vira o prompt de sistema do agente.');
+  } else if (t === 'supervisor') {
+    html += field('Critérios de aprovação', '<textarea id="i-instr" rows="12" placeholder="O que precisa estar certo para aprovar e como conferir. Exemplo: todos os botões funcionam, nada sobreposto, cores da marca. Conferir abrindo no navegador e testando cada botão.">' + esc(n.instructions) + '</textarea>',
+      'O supervisor recebe só o resultado, nunca o raciocínio de quem fez. Diga o que ele exige e como confere.');
+    html += '<div class="presets field"><label>Critérios prontos</label><p>Cada um acrescenta um critério às instruções. Clique de novo para tirar.</p>' +
+      PRESETS.map((p) => '<button class="preset' + ((n.presets || []).includes(p.id) ? ' on' : '') + '" data-preset="' + p.id + '"><b>' + esc(p.nome) + '</b><span>' + esc(p.sub) + '</span></button>').join('') +
+      '</div>';
+    html += '<div class="field"><label for="i-rounds">Máximo de rodadas</label><div class="rounds"><input type="number" id="i-rounds" min="1" max="50" value="' + (n.max_rounds || 3) + '">' +
+      '<p class="hint" style="margin:0">Se reprovar, o trabalhador refaz. Ao atingir o limite, segue o melhor resultado, com as ressalvas anotadas.</p></div></div>';
+  } else {
+    html += field('Instruções', '<textarea id="i-instr" rows="9" placeholder="Como juntar os resultados que chegam. Exemplo: um relatório com uma seção por pesquisa e as fontes de cada dado.">' + esc(n.instructions) + '</textarea>',
+      'Junta os resultados que chegam num único artefato. Se algo sair desta peça, ele vira o insumo da fase seguinte.');
+    html += field('Formato', '<input type="text" id="i-format" value="' + esc(n.format || '') + '" placeholder="Exemplo: documento Markdown com uma seção por pesquisa">');
+  }
+
+  if (t === 'trabalhador' || t === 'supervisor') {
+    html += '<details class="advanced"' + (n.model || n.tools ? ' open' : '') + '><summary>Avançado</summary>' +
+      field('Modelo', '<input type="text" id="i-model" value="' + esc(n.model || '') + '" placeholder="Vazio usa o modelo padrão">', 'Use um modelo mais barato nas etapas simples e um mais forte onde importa.') +
+      field('Ferramentas e acessos', '<textarea id="i-tools" rows="4" placeholder="Exemplo: navegador via Playwright MCP; API de busca com a chave em TAVILY_API_KEY">' + esc(n.tools || '') + '</textarea>',
+        'Informe as ferramentas e o nome da variável de cada credencial, nunca a chave em si.', 'tools-warn') +
+      '</details>';
+  }
+  return html + linksHtml(n);
+}
+
+function renderInspector() {
+  const el = $('#inspector');
+  const n = selected && selected.kind === 'node' ? nodeById(G, selected.id) : null;
+  if (!n) { renderGraphPanel(el); return; }
+
+  el.innerHTML = '<div class="inspector-head t-' + n.type + '"><span class="type-tag"><i class="dot"></i>' + TIPOS[n.type].label + '</span>' +
+    '<span class="btns"><button class="btn btn-sm" id="i-dup" title="Ctrl+D">Duplicar</button><button class="btn btn-sm" id="i-del">Apagar</button></span></div>' +
+    nodeFields(n);
+
+  bindText($('#i-name'), (v) => { n.name = v.slice(0, 120); }, softUpdate);
+  bindText($('#i-instr'), (v) => { n.instructions = v; }, softUpdate);
+  if ($('#i-format')) bindText($('#i-format'), (v) => { n.format = v; }, softUpdate);
+  if ($('#i-model')) bindText($('#i-model'), (v) => { n.model = v.trim(); if (!n.model) delete n.model; }, softUpdate);
+  if ($('#i-tools')) {
+    const checkSecret = () => {
+      const looksSecret = /(sk-[A-Za-z0-9_-]{12,}|AIza[0-9A-Za-z_-]{20,}|ghp_[A-Za-z0-9]{20,}|xox[bp]-|-----BEGIN|[A-Za-z0-9_\-]{40,})/.test(n.tools || '');
+      const warn = $('#tools-warn');
+      warn.hidden = !looksSecret;
+      warn.textContent = 'Isto parece uma chave secreta. Escreva só o nome da variável de ambiente, porque o texto exportado pode ser compartilhado.';
+    };
+    bindText($('#i-tools'), (v) => { n.tools = v; if (!v.trim()) delete n.tools; }, () => { checkSecret(); softUpdate(); });
+    checkSecret();
+  }
+  if ($('#i-rounds')) {
+    $('#i-rounds').addEventListener('change', (e) => {
+      const v = Math.min(50, Math.max(1, parseInt(e.target.value, 10) || 3));
+      e.target.value = v;
+      if (v !== n.max_rounds) { pushHistory(); n.max_rounds = v; softUpdate(); }
+    });
+  }
+  $$('.preset', el).forEach((b) => b.addEventListener('click', () => togglePreset(n, b.dataset.preset)));
+  $('#i-del').addEventListener('click', deleteSelected);
+  $('#i-dup').addEventListener('click', duplicateSelected);
+}
+
+// Campo de texto com desfazer: a versão anterior entra no histórico quando o campo perde o foco.
+function bindText(el, apply, after) {
+  if (!el) return;
+  el.addEventListener('focus', () => { el._before = snapshot(); });
+  el.addEventListener('input', () => { apply(el.value); if (after) after(); });
+  el.addEventListener('blur', () => { commitBefore(el._before); el._before = null; });
+}
+
+function softUpdate() {
+  renderNodes();
+  renderWarnings();
+  scheduleSave();
+  const links = $('#inspector .links');
+  const n = selected && nodeById(G, selected.id);
+  if (links && n) links.outerHTML = linksHtml(n);
+}
+
+function togglePreset(n, presetId) {
+  const preset = PRESETS.find((x) => x.id === presetId);
+  if (!preset) return;
+  pushHistory();
+  n.presets = n.presets || [];
+  const i = n.presets.indexOf(presetId);
+  if (i >= 0) {
+    n.presets.splice(i, 1);
+    n.instructions = n.instructions.split(preset.texto).join('').replace(/\n{3,}/g, '\n\n').trim();
+  } else {
+    n.presets.push(presetId);
+    const current = String(n.instructions || '').trim();
+    n.instructions = (current ? current + '\n\n' : '') + preset.texto;
+  }
+  renderNodes();
+  renderInspector();
+  renderWarnings();
+  scheduleSave();
+}
+
+
+// Ações sobre peças
+
+function select(sel) {
+  const changed = JSON.stringify(sel) !== JSON.stringify(selected);
+  selected = sel;
+  if (changed) { renderNodes(); renderInspector(); }
+  if (sel && sel.kind === 'node' && window.innerWidth <= 980) document.body.classList.add('show-inspector');
+}
+
+function addNodeAt(type, pos) {
+  if (type === 'entrada' && byType(G, 'entrada').length) { toast('Só pode existir uma Entrada por grafo.'); return; }
+  pushHistory();
+  const n = makeNode(G, type, { x: pos.x - NODE_W / 2, y: pos.y - 50 });
+  selected = { kind: 'node', id: n.id };
+  renderAll();
+  scheduleSave();
+}
+
+function deleteSelected() {
+  if (!selected) return;
+  pushHistory();
+  const id = selected.id;
+  if (selected.kind === 'node') {
+    G.nodes = G.nodes.filter((n) => n.id !== id);
+    G.edges = G.edges.filter((e) => e.source !== id && e.target !== id);
+  } else {
+    G.edges = G.edges.filter((e) => e.id !== id);
+  }
+  selected = null;
+  renderAll();
+  scheduleSave();
+}
+
+function duplicateSelected() {
+  if (!selected || selected.kind !== 'node') return;
+  const src = nodeById(G, selected.id);
+  if (!src) return;
+  if (src.type === 'entrada') return toast('Só pode existir uma Entrada por grafo.');
+  pushHistory();
+  const n = makeNode(G, src.type, { x: src.position.x + 40, y: src.position.y + 40 });
+  ['instructions', 'max_rounds', 'format', 'model', 'tools'].forEach((k) => { if (src[k] !== undefined) n[k] = src[k]; });
+  if (src.presets) n.presets = src.presets.slice();
+  selected = { kind: 'node', id: n.id };
+  renderAll();
+  scheduleSave();
+}
+
+
+// Zoom e enquadramento
+
+function screenToWorld(cx, cy) {
+  const r = $('#canvas').getBoundingClientRect();
+  return { x: (cx - r.left - view.x) / view.k, y: (cy - r.top - view.y) / view.k };
+}
+
+function fitView() {
+  const canvas = $('#canvas');
+  const cw = canvas.clientWidth;
+  const ch = canvas.clientHeight;
+  if (!G.nodes.length) { view = { x: cw / 2 - 125, y: ch / 2 - 60, k: 1 }; applyView(); return; }
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  G.nodes.forEach((n) => {
+    minX = Math.min(minX, n.position.x);
+    minY = Math.min(minY, n.position.y);
+    maxX = Math.max(maxX, n.position.x + NODE_W);
+    maxY = Math.max(maxY, n.position.y + (heights[n.id] || DEFAULT_H));
+  });
+  const pad = 70;
+  const w = maxX - minX + pad * 2;
+  const h = maxY - minY + pad * 2;
+  const k = Math.max(0.1, Math.min(1.15, cw / w, (ch - 50) / h));
+  view = { k, x: (cw - (maxX - minX) * k) / 2 - minX * k, y: (ch - 50 - (maxY - minY) * k) / 2 - minY * k };
+  applyView();
+}
+
+function centerOn(id) {
+  const n = nodeById(G, id);
+  if (!n) return;
+  const canvas = $('#canvas');
+  view.x = canvas.clientWidth / 2 - (n.position.x + NODE_W / 2) * view.k;
+  view.y = canvas.clientHeight / 2 - (n.position.y + (heights[id] || DEFAULT_H) / 2) * view.k;
+  applyView();
+}
+
+function zoomAt(factor, cx, cy) {
+  const r = $('#canvas').getBoundingClientRect();
+  if (cx == null) { cx = r.left + r.width / 2; cy = r.top + r.height / 2; }
+  const k = Math.max(0.1, Math.min(2.5, view.k * factor));
+  const px = cx - r.left;
+  const py = cy - r.top;
+  view.x = px - (px - view.x) * (k / view.k);
+  view.y = py - (py - view.y) * (k / view.k);
+  view.k = k;
+  applyView();
+}
+
+
+// Arrastar, ligar e mover no quadro
+
+function initCanvas() {
+  const canvas = $('#canvas');
+  let drag = null;
+
+  canvas.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || e.target.closest('.canvas-ui')) return;
+    const portOut = e.target.closest('.port.out');
+    const nodeEl = e.target.closest('.node');
+    const edgeEl = e.target.closest('.edge-hit');
+
+    if (portOut && nodeEl) {
+      e.preventDefault();
+      const src = nodeById(G, nodeEl.dataset.id);
+      drag = { mode: 'connect', src: src.id, from: portPos(src, 'out') };
+    } else if (nodeEl) {
+      e.preventDefault();
+      const n = nodeById(G, nodeEl.dataset.id);
+      select({ kind: 'node', id: n.id });
+      drag = {
+        mode: 'node', id: n.id, sx: e.clientX, sy: e.clientY, ox: n.position.x, oy: n.position.y,
+        before: snapshot(), moved: false, el: $('.node[data-id="' + CSS.escape(n.id) + '"]'),
+      };
+    } else if (edgeEl) {
+      e.preventDefault();
+      const id = edgeEl.dataset.id;
+      if (selected && selected.kind === 'edge' && selected.id === id) {
+        deleteSelected();
+        toast('Fio cortado. Ctrl+Z desfaz.');
+      } else {
+        select({ kind: 'edge', id });
+        renderEdges();
+      }
+    } else {
+      drag = { mode: 'pan', sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y, moved: false };
+      canvas.classList.add('panning');
+    }
+  });
+
+  window.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    if (drag.mode === 'node') {
+      const dx = (e.clientX - drag.sx) / view.k;
+      const dy = (e.clientY - drag.sy) / view.k;
+      if (!drag.moved && Math.abs(dx) + Math.abs(dy) < 3) return;
+      drag.moved = true;
+      const n = nodeById(G, drag.id);
+      n.position.x = Math.round(drag.ox + dx);
+      n.position.y = Math.round(drag.oy + dy);
+      if (drag.el) { drag.el.style.left = n.position.x + 'px'; drag.el.style.top = n.position.y + 'px'; }
+      renderEdges();
+    } else if (drag.mode === 'pan') {
+      const mx = e.clientX - drag.sx;
+      const my = e.clientY - drag.sy;
+      if (Math.abs(mx) + Math.abs(my) > 3) drag.moved = true;
+      view.x = drag.vx + mx;
+      view.y = drag.vy + my;
+      applyView();
+    } else if (drag.mode === 'connect') {
+      const temp = $('#temp-edge');
+      if (temp) temp.setAttribute('d', curve(drag.from, screenToWorld(e.clientX, e.clientY)));
+    }
+  });
+
+  window.addEventListener('pointerup', (e) => {
+    if (!drag) return;
+    const d = drag;
+    drag = null;
+    canvas.classList.remove('panning');
+    if (d.mode === 'node' && d.moved) {
+      commitBefore(d.before);
+      scheduleSave();
+    } else if (d.mode === 'pan' && !d.moved) {
+      if (selected) { selected = null; renderNodes(); renderInspector(); }
+    } else if (d.mode === 'connect') {
+      const temp = $('#temp-edge');
+      if (temp) temp.setAttribute('d', '');
+      const hit = document.elementFromPoint(e.clientX, e.clientY);
+      const nodeEl = hit && hit.closest && hit.closest('.node');
+      if (!nodeEl || nodeEl.dataset.id === d.src) return;
+      const check = canConnect(G, d.src, nodeEl.dataset.id);
+      if (!check.ok) { toast(check.msg); return; }
+      pushHistory();
+      addEdge(G, d.src, nodeEl.dataset.id);
+      renderNodes();
+      renderWarnings();
+      scheduleSave();
+      if (selected && selected.kind === 'node') renderInspector();
+    }
+  });
+
+  canvas.addEventListener('wheel', (e) => {
+    if (e.target.closest('.warnings')) return;
+    e.preventDefault();
+    if (e.ctrlKey || Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      zoomAt(Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)), e.clientX, e.clientY);
+    } else {
+      view.x -= e.deltaX;
+      applyView();
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+  canvas.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const type = e.dataTransfer.getData('text/plain');
+    if (TIPOS[type]) addNodeAt(type, screenToWorld(e.clientX, e.clientY));
+  });
+
+  const addFromPalette = (piece) => {
+    const r = canvas.getBoundingClientRect();
+    const offset = (G.nodes.length % 5) * 24;
+    addNodeAt(piece.dataset.type, screenToWorld(r.left + r.width / 2 + offset, r.top + r.height / 2 + offset));
+    document.body.classList.remove('show-palette');
+  };
+  $$('.piece').forEach((piece) => {
+    piece.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', piece.dataset.type); e.dataTransfer.effectAllowed = 'copy'; });
+    piece.addEventListener('click', () => addFromPalette(piece));
+    piece.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); addFromPalette(piece); } });
+  });
+
+  $('#warnings').addEventListener('click', function (e) {
+    if (e.target.closest('#warn-toggle')) { this.classList.toggle('collapsed'); return; }
+    const item = e.target.closest('li.click');
+    if (item) { select({ kind: 'node', id: item.dataset.id }); centerOn(item.dataset.id); }
+  });
+
+  window.addEventListener('resize', applyView);
+}
+
+
+// Teclado
+
+document.addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  const typing = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
+  const modalOpen = $('#modal-root').firstChild;
+  if (e.key === 'Escape') {
+    if (modalOpen) closeModal();
+    else if (selected) { selected = null; renderNodes(); renderInspector(); }
+    return;
+  }
+  if (typing || modalOpen) return;
+  const mod = e.ctrlKey || e.metaKey;
+  const key = e.key.toLowerCase();
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selected) { e.preventDefault(); deleteSelected(); }
+  else if (mod && key === 'd') { e.preventDefault(); duplicateSelected(); }
+  else if (mod && key === 'z' && e.shiftKey) { e.preventDefault(); redo(); }
+  else if (mod && key === 'z') { e.preventDefault(); undo(); }
+  else if (mod && key === 'y') { e.preventDefault(); redo(); }
+});
+
+
+// Janelas, confirmações e avisos
+
+function openModal(html, size) {
+  closeModal();
+  const root = $('#modal-root');
+  root.innerHTML = '<div class="backdrop"><div class="modal' + (size ? ' ' + size : '') + '" role="dialog" aria-modal="true">' + html + '</div></div>';
+  const backdrop = root.firstChild;
+  backdrop.addEventListener('pointerdown', (e) => { if (e.target === backdrop) closeModal(); });
+  $$('[data-close]', backdrop).forEach((b) => b.addEventListener('click', closeModal));
+  return backdrop;
+}
+
+function closeModal() { $('#modal-root').innerHTML = ''; }
+
+function modalHeader(title, closable) {
+  return '<header><h3>' + esc(title) + '</h3>' + (closable ? '<button class="btn btn-sm btn-quiet" data-close>Fechar</button>' : '') + '</header>';
+}
+
+// Resolve com true (ou o texto digitado) ao confirmar e com null ao cancelar.
+function dialog({ title, message, input, ok = 'Confirmar', cancel = 'Cancelar', danger = false }) {
+  return new Promise((resolve) => {
+    const backdrop = openModal(modalHeader(title) +
+      '<div class="body">' + (message ? '<p class="dialog-message">' + esc(message) + '</p>' : '') +
+      (input !== undefined ? '<input class="input" id="dlg-in" type="text" value="' + esc(input) + '">' : '') + '</div>' +
+      '<footer><span></span><div class="right"><button class="btn" id="dlg-cancel">' + esc(cancel) + '</button>' +
+      '<button class="btn ' + (danger ? 'btn-danger' : 'btn-primary') + '" id="dlg-ok">' + esc(ok) + '</button></div></footer>');
+    const done = (value) => { closeModal(); resolve(value); };
+    $('#dlg-cancel', backdrop).onclick = () => done(null);
+    $('#dlg-ok', backdrop).onclick = () => done(input !== undefined ? $('#dlg-in', backdrop).value : true);
+    const field = $('#dlg-in', backdrop);
+    if (field) {
+      field.focus();
+      field.select();
+      field.addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#dlg-ok', backdrop).click(); });
+    } else {
+      $('#dlg-ok', backdrop).focus();
+    }
+  });
+}
+
+let toastTimer;
+function toast(html, ms) {
+  const el = $('#toast');
+  el.innerHTML = html;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), ms || 3200);
+}
+
+
+// Exportar
+
+const EXPORT_FORMATS = [
+  { id: 'txt', name: 'Texto para a IA', ext: 'txt', mime: 'text/plain', build: exportText,
+    description: 'Um roteiro em texto com o objetivo, o fluxo, a ordem de execução e as instruções de cada peça. Cole num chat e peça para montar o time. Acima de uns 8 mil caracteres, baixe o arquivo e peça para a IA lê-lo, porque colagens grandes podem ser cortadas sem aviso.' },
+  { id: 'json', name: 'JSON', ext: 'json', mime: 'application/json', build: exportJSON,
+    description: 'O grafo completo, para abrir de novo aqui em Importar JSON, guardar no Git ou usar no seu próprio código.' },
+  { id: 'py', name: 'LangGraph (Python)', ext: 'py', mime: 'text/x-python', build: exportPython,
+    description: 'Um programa em LangGraph pronto para rodar: um nó por peça, o supervisor aprova e segue ou reprova e volta, até o limite de rodadas. Usa a sua chave, por variáveis de ambiente.' },
+];
+
+function openExport() {
+  let current = EXPORT_FORMATS[0];
+  const backdrop = openModal(modalHeader('Exportar', true) +
+    '<div class="body"><div class="tabs">' + EXPORT_FORMATS.map((f) => '<button class="tab" data-tab="' + f.id + '">' + f.name + '</button>').join('') + '</div>' +
+    '<p class="description" id="ex-desc"></p><textarea class="code" id="ex-code" readonly spellcheck="false"></textarea></div>' +
+    '<footer><span class="meta" id="ex-meta"></span><div class="right">' +
+    '<button class="btn" id="ex-drive" title="Gera um link de download que vale por 10 minutos">Link de download</button>' +
+    '<button class="btn" id="ex-dl">Baixar arquivo</button>' +
+    '<button class="btn btn-primary" id="ex-copy">Copiar</button></div></footer>', 'wide');
+
+  const show = (format) => {
+    current = format;
+    $$('.tab', backdrop).forEach((b) => b.classList.toggle('on', b.dataset.tab === format.id));
+    $('#ex-desc', backdrop).textContent = format.description;
+    let text;
+    try { text = format.build(G); } catch (err) { text = 'Erro ao gerar: ' + err.message; }
+    $('#ex-code', backdrop).value = text;
+    $('#ex-meta', backdrop).textContent = text.length.toLocaleString('pt-BR') + ' caracteres, ' +
+      plural(G.nodes.length, 'peça', 'peças') + ', ' + plural(G.edges.length, 'fio', 'fios');
+  };
+  const fileName = () => slug(G.name) + (current.id === 'py' ? '_grafo' : '') + '.' + current.ext;
+
+  $$('.tab', backdrop).forEach((b) => { b.onclick = () => show(EXPORT_FORMATS.find((f) => f.id === b.dataset.tab)); });
+
+  $('#ex-copy', backdrop).onclick = () => {
+    const area = $('#ex-code', backdrop);
+    const fallback = () => {
+      area.focus();
+      area.select();
+      try { document.execCommand('copy'); toast('Copiado.'); } catch (e) { toast('Selecione o texto e copie com Ctrl+C.'); }
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(area.value).then(() => toast('Copiado.'), fallback);
+    else fallback();
+  };
+
+  $('#ex-dl', backdrop).onclick = () => {
+    try {
+      const blob = new Blob([$('#ex-code', backdrop).value], { type: current.mime + ';charset=utf-8' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = fileName();
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(link.href), 3000);
+    } catch (e) {
+      toast('O navegador bloqueou o download aqui. Use "Link de download".');
+    }
+  };
+
+  $('#ex-drive', backdrop).onclick = function () {
+    const button = this;
+    button.disabled = true;
+    button.textContent = 'Gerando…';
+    api('prepararDownload', fileName(), $('#ex-code', backdrop).value)
+      .then((r) => toast('Link pronto: <a href="' + esc(r.url) + '" target="_blank" rel="noopener">baixar ' + esc(r.name) + '</a>. Vale por ' + r.minutos + ' minutos.', 15000))
+      .catch((err) => toast(esc(err.message)))
+      .then(() => { button.disabled = false; button.textContent = 'Link de download'; });
+  };
+
+  show(current);
+}
+
+
+// Meus grafos
+
+// Abre o exemplo e o reorganiza com a altura real dos cartões, que só existe depois de desenhados.
+function openExample() {
+  setGraph(buildExample());
+  layoutGraph(G, heights);
+  renderNodes();
+  requestAnimationFrame(fitView);
+  scheduleSave();
+}
+
+function setGraph(g) {
+  G = g;
+  graphSeq++;
+  undoStack = [];
+  redoStack = [];
+  selected = null;
+  heights = {};
+  renderAll();
+  requestAnimationFrame(fitView);
+}
+
+function graphRowHtml(item) {
+  const date = new Date(item.updatedAt);
+  const edited = date.toLocaleDateString('pt-BR') + ' às ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return '<div class="graph-row' + (item.id === G.id ? ' current' : '') + '" data-id="' + esc(item.id) + '">' +
+    '<div class="grow"><div class="name" data-act="open">' + esc(item.name) + '</div>' +
+    '<div class="details">' + (item.id === G.id ? '<span class="open-now">Aberto agora.</span> ' : '') + plural(item.pieces, 'peça', 'peças') + ', ' + plural(item.wires, 'fio', 'fios') + '. Editado em ' + edited + '.</div></div>' +
+    '<button class="btn btn-sm" data-act="open">Abrir</button>' +
+    '<button class="btn btn-sm btn-quiet" data-act="rename">Renomear</button>' +
+    '<button class="btn btn-sm btn-quiet" data-act="dup">Duplicar</button>' +
+    '<button class="btn btn-sm btn-quiet" data-act="del">Apagar</button></div>';
+}
+
+function openGraphs() {
+  const backdrop = openModal(modalHeader('Meus grafos', true) +
+    '<div class="body"><div class="graph-list" id="g-list"><p class="hint">Carregando…</p></div></div>' +
+    '<footer><span class="meta">' + (ONLINE ? 'Guardados numa pasta só sua.' : 'Modo local: guardados neste navegador.') + '</span>' +
+    '<div class="right"><button class="btn" id="g-example">Abrir exemplo</button><button class="btn btn-primary" id="g-new">Novo grafo</button></div></footer>', 'list');
+
+  const load = () => {
+    flushSave()
+      .then(() => api('listGraphs'))
+      .then((list) => {
+        const box = $('#g-list', backdrop);
+        if (!box) return;
+        box.innerHTML = list.length ? list.map(graphRowHtml).join('') : '<p class="hint">Nenhum grafo salvo ainda. Crie um novo ou abra o exemplo.</p>';
+      })
+      .catch((err) => {
+        const box = $('#g-list', backdrop);
+        if (box) box.innerHTML = '<p class="hint warn">' + esc(err.message) + '</p>';
+      });
+  };
+
+  $('#g-list', backdrop).addEventListener('click', (e) => {
+    const button = e.target.closest('[data-act]');
+    if (!button) return;
+    const row = button.closest('.graph-row');
+    const id = row.dataset.id;
+    const name = $('.name', row).textContent;
+    const action = button.dataset.act;
+
+    if (action === 'open') {
+      flushSave()
+        .then(() => api('loadGraph', id))
+        .then((json) => { setGraph(JSON.parse(json)); closeModal(); toast('Aberto: ' + esc(name)); })
+        .catch((err) => toast(esc(err.message)));
+    } else if (action === 'rename') {
+      dialog({ title: 'Renomear grafo', input: name, ok: 'Renomear' }).then((value) => {
+        if (value === null || !value.trim()) return openGraphs();
+        const done = id === G.id ? (G.name = value.trim(), renderTitle(), saveNow()) : api('renameGraph', id, value.trim());
+        Promise.resolve(done).then(openGraphs).catch((err) => { toast(esc(err.message)); openGraphs(); });
+      });
+    } else if (action === 'dup') {
+      button.disabled = true;
+      flushSave()
+        .then(() => api('duplicateGraph', id))
+        .then(() => { toast('Grafo duplicado.'); load(); })
+        .catch((err) => { toast(esc(err.message)); button.disabled = false; });
+    } else if (action === 'del') {
+      dialog({
+        title: 'Apagar "' + name + '"?',
+        message: ONLINE ? 'O arquivo vai para a lixeira do Drive do app, onde o administrador pode recuperá-lo por 30 dias.' : 'Não é possível desfazer.',
+        ok: 'Apagar',
+        danger: true,
+      }).then((ok) => {
+        if (!ok) return openGraphs();
+        api('deleteGraph', id)
+          .then(() => {
+            if (id === G.id) { clearTimeout(saveTimer); setGraph(newGraph()); }
+            toast('Grafo apagado.');
+            openGraphs();
+          })
+          .catch((err) => { toast(esc(err.message)); openGraphs(); });
+      });
+    }
+  });
+
+  $('#g-new', backdrop).onclick = () => flushSave().then(() => {
+    api('forgetCurrent').catch(() => {});
+    setGraph(newGraph());
+    closeModal();
+  });
+  $('#g-example', backdrop).onclick = () => flushSave().then(() => {
+    closeModal();
+    openExample();
+    toast('Exemplo aberto como um grafo novo.');
+  });
+  load();
+}
+
+
+// Importar JSON
+
+function openImport() {
+  const backdrop = openModal(modalHeader('Importar JSON', true) +
+    '<div class="body"><p class="description">Cole um JSON exportado pelo Grafo Studio ou escolha um arquivo .json. Ele abre como um grafo novo, e o atual continua salvo em Meus grafos.</p>' +
+    '<input type="file" id="j-file" accept=".json,application/json" style="margin-bottom:10px">' +
+    '<textarea class="code" id="j-text" spellcheck="false" placeholder="{ &quot;version&quot;: 1, &quot;nodes&quot;: [...], &quot;edges&quot;: [...] }" style="min-height:300px"></textarea>' +
+    '<p class="hint warn" id="j-err" hidden></p></div>' +
+    '<footer><span></span><div class="right"><button class="btn" data-close>Cancelar</button><button class="btn btn-primary" id="j-open">Importar</button></div></footer>', 'wide');
+
+  $('#j-file', backdrop).onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => { $('#j-text', backdrop).value = reader.result; };
+    reader.readAsText(file, 'utf-8');
+  };
+
+  $('#j-open', backdrop).onclick = () => {
+    const error = $('#j-err', backdrop);
+    try {
+      const g = normalizeGraph($('#j-text', backdrop).value);
+      flushSave().then(() => {
+        setGraph(g);
+        if (!g.nodes.some((n) => n.position.x || n.position.y)) {
+          layoutGraph(G, heights);
+          renderNodes();
+          requestAnimationFrame(fitView);
+        }
+        closeModal();
+        scheduleSave();
+        toast('Grafo importado com ' + plural(g.nodes.length, 'peça', 'peças') + ' e ' + plural(g.edges.length, 'fio', 'fios') + '.');
+      });
+    } catch (err) {
+      error.hidden = false;
+      error.textContent = err.message;
+    }
+  };
+}
+
+
+// Ajuda
+
+const HELP_PAGES = {
+  conceito:
+    '<h4>Loop</h4><p>Um Trabalhador produz uma parte do trabalho. Um Supervisor recebe só o resultado, nunca o raciocínio de quem fez, e o avalia pelos critérios que você escreveu. Se reprovar, devolve com o que falta e o Trabalhador refaz, até o limite de rodadas.</p>' +
+    '<h4>Por que separar quem faz de quem avalia</h4><p>Quem construiu tende a defender as próprias escolhas. Um avaliador com contexto separado julga só o resultado, e isso força entregas mais cuidadosas.</p>' +
+    '<h4>Grafo</h4><p>Vários loops rodam em paralelo, e uma Entrega junta os resultados. Essa entrega pode alimentar a fase seguinte, com outros loops em paralelo, até chegar ao objetivo final.</p>' +
+    '<h4>Os critérios são o que importa</h4><p>Escreva no Supervisor não só o que aprova, mas como conferir: abrir no navegador, rodar os testes, comparar com uma referência. Só ler o código raramente basta.</p>' +
+    '<h4>Economize</h4><p>Nem todo loop precisa do modelo mais caro. Em etapas mecânicas, "funcionou e passou nos testes" basta. Use o campo Modelo, em Avançado, e um limite de rodadas baixo onde der.</p>',
+  montar:
+    '<ol><li>Escreva o objetivo do grafo no painel da direita. Para vê-lo, clique no fundo do quadro.</li>' +
+    '<li>Arraste peças da coluna da esquerda para o quadro. A Entrada é opcional e representa o que você informa ao rodar.</li>' +
+    '<li>Ligue as peças arrastando da bolinha direita de uma até a outra. O fluxo comum é Entrada, Trabalhadores, Supervisores, Entrega e a fase seguinte.</li>' +
+    '<li>Clique em cada peça e escreva as instruções. Nos Supervisores, escreva os critérios ou use os critérios prontos, e defina o limite de rodadas.</li>' +
+    '<li>Confira o quadro "Antes de exportar", no canto inferior direito.</li>' +
+    '<li>Clique em Exportar. Baixe o texto e peça à sua IA para executar o grafo, ou rode o programa em LangGraph.</li></ol>' +
+    '<p class="hint">Tudo é salvo sozinho, numa pasta só sua. Em Meus grafos você abre, renomeia, duplica e apaga.</p>',
+  atalhos:
+    '<table>' + [
+      ['Arrastar da bolinha direita', 'Liga uma peça a outra'],
+      ['Clique num fio', 'Seleciona; outro clique corta'],
+      ['<kbd>Del</kbd> ou <kbd>Backspace</kbd>', 'Apaga a peça ou o fio selecionado'],
+      ['<kbd>Ctrl+D</kbd>', 'Duplica a peça com instruções e critérios'],
+      ['<kbd>Ctrl+Z</kbd>', 'Desfaz'],
+      ['<kbd>Ctrl+Shift+Z</kbd> ou <kbd>Ctrl+Y</kbd>', 'Refaz'],
+      ['<kbd>Esc</kbd>', 'Tira a seleção ou fecha a janela'],
+      ['Arrastar o fundo', 'Move o quadro'],
+      ['Rolar ou pinçar', 'Zoom'],
+      ['Enquadrar', 'Mostra o grafo inteiro'],
+      ['Arrumar', 'Organiza as peças em colunas, da esquerda para a direita'],
+      ['Foco', 'Destaca só a cadeia da peça selecionada'],
+    ].map(([keys, what]) => '<tr><td>' + keys + '</td><td>' + what + '</td></tr>').join('') + '</table>',
+};
+
+function openHelp() {
+  const backdrop = openModal(modalHeader('Como funciona', true) +
+    '<div class="body help"><div class="tabs">' +
+    '<button class="tab on" data-page="conceito">Conceito</button><button class="tab" data-page="montar">Como montar</button><button class="tab" data-page="atalhos">Atalhos</button>' +
+    '</div><div id="h-page"></div></div>');
+  const show = (page) => {
+    $('#h-page', backdrop).innerHTML = HELP_PAGES[page];
+    $$('.tab', backdrop).forEach((b) => b.classList.toggle('on', b.dataset.page === page));
+  };
+  $$('.tab', backdrop).forEach((b) => { b.onclick = () => show(b.dataset.page); });
+  show('conceito');
+}
+
+
+// Barra superior
+
+function initTopbar() {
+  const name = $('#graph-name');
+  bindText(name, (v) => { G.name = v.slice(0, 120) || 'Meu grafo'; }, scheduleSave);
+  name.addEventListener('keydown', (e) => { if (e.key === 'Enter') name.blur(); });
+  name.addEventListener('blur', () => { if (!name.value.trim()) { G.name = 'Meu grafo'; name.value = G.name; } });
+
+  $('#btn-help').onclick = openHelp;
+  $('#btn-graphs').onclick = openGraphs;
+  $('#btn-open-json').onclick = openImport;
+  $('#btn-export').onclick = openExport;
+  $('#btn-example-empty').onclick = () => { openExample(); toast('Exemplo aberto.'); };
+  $('#btn-clear').onclick = () => {
+    if (!G.nodes.length) return toast('O quadro já está vazio.');
+    dialog({ title: 'Esvaziar o quadro?', message: 'Todas as peças e fios deste grafo serão removidos. O nome e o objetivo continuam. Ctrl+Z desfaz.', ok: 'Esvaziar', danger: true })
+      .then((ok) => {
+        if (!ok) return;
+        pushHistory();
+        G.nodes = [];
+        G.edges = [];
+        selected = null;
+        renderAll();
+        scheduleSave();
+      });
+  };
+  $('#btn-pal').onclick = () => { document.body.classList.toggle('show-palette'); document.body.classList.remove('show-inspector'); };
+  $('#btn-insp').onclick = () => { document.body.classList.toggle('show-inspector'); document.body.classList.remove('show-palette'); };
+  if (!ONLINE) $('#btn-logout').hidden = true;
+  $('#btn-logout').onclick = logout;
+
+  $('#z-in').onclick = () => zoomAt(1.2);
+  $('#z-out').onclick = () => zoomAt(1 / 1.2);
+  $('#z-fit').onclick = fitView;
+  $('#z-arrange').onclick = () => {
+    if (!G.nodes.length) return;
+    pushHistory();
+    layoutGraph(G, heights);
+    renderNodes();
+    fitView();
+    scheduleSave();
+  };
+  $('#z-focus').onclick = function () {
+    focusMode = !focusMode;
+    this.classList.toggle('active', focusMode);
+    if (focusMode && !(selected && selected.kind === 'node')) toast('Foco ligado. Selecione uma peça para destacar a cadeia dela.');
+    renderNodes();
+  };
+  $('#z-undo').onclick = undo;
+  $('#z-redo').onclick = redo;
+
+  window.addEventListener('beforeunload', (e) => {
+    if (saveTimer || saving) { saveNow(); e.preventDefault(); e.returnValue = ''; }
+  });
+}
+
+
+// Início
+
+function start() {
+  setStatus('carregando…');
+  api('bootstrap')
+    .then((b) => {
+      $('#user-email').textContent = b.email || '';
+      currentUser = b.email || '';
+      let graph = null;
+      if (b.graph) { try { graph = JSON.parse(b.graph); } catch (e) { graph = null; } }
+      setGraph(graph || newGraph());
+      setStatus(b.graph ? 'salvo' : '');
+      const draft = readDraft();
+      if (draft) { offerDraft(draft); return; }
+      if (!b.helpSeen) { openHelp(); api('markHelpSeen').catch(() => {}); }
+    })
+    .catch((err) => {
+      if (!$('#login').hidden) return; // a sessão expirou e o login já está na tela
+      setStatus('sem conexão com o Drive', true);
+      toast('Não foi possível carregar seus grafos: ' + esc(err.message), 6000);
+      requestAnimationFrame(fitView);
+    });
+}
+
+initCanvas();
+initTopbar();
+applyView();
+renderAll();
+if (ONLINE && !TOKEN) showLogin('');
+else start();
+</script>
+</body>
+</html>
