@@ -36,8 +36,11 @@ var PASTA_NOME = 'Grafo Studio';
 var PASTA_EXPORT = 'Exportações';
 var EXT = '.grafo.json';
 var SESSAO_SEGUNDOS = 6 * 60 * 60;    // 6 horas (máximo do CacheService)
+var DOWNLOAD_SEGUNDOS = 10 * 60;      // validade do link de download: 10 minutos
 
-function doGet() {
+function doGet(e) {
+  // Endereço de download (…/exec?baixar=<código>): entrega o arquivo exportado.
+  if (e && e.parameter && e.parameter.baixar) return baixar_(String(e.parameter.baixar));
   return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('Grafo Studio')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
@@ -417,13 +420,31 @@ function forgetCurrent(token) {
   return true;
 }
 
-/** Salva uma exportação (.txt, .json, .py) no Drive e devolve o link. */
-function exportToDrive(token, nomeArquivo, conteudo) {
+/**
+ * Prepara o download de uma exportação (.txt, .json, .py).
+ * O arquivo fica guardado no Drive do dono do app, PRIVADO (sem link público),
+ * na pasta "Exportações" do usuário. O usuário recebe um endereço de download
+ * com um código aleatório que vale por poucos minutos.
+ */
+function prepararDownload(token, nomeArquivo, conteudo) {
   var s = sessao_(token);
   var nome = String(nomeArquivo || 'grafo.txt').replace(/[\\/:*?"<>|]/g, '-').slice(0, 150);
   var f = subpasta_(pastaUsuario_(s), PASTA_EXPORT).createFile(nome, String(conteudo || ''), MimeType.PLAIN_TEXT);
-  // O arquivo fica no Drive do dono do app; o link permite que o usuário logado o abra.
-  try { f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) {}
-  return { url: f.getUrl(), name: f.getName() };
+  var codigo = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+  CacheService.getScriptCache().put('dl_' + codigo, JSON.stringify({ arquivo: f.getId(), nome: nome }), DOWNLOAD_SEGUNDOS);
+  return { url: ScriptApp.getService().getUrl() + '?baixar=' + codigo, name: nome, minutos: Math.round(DOWNLOAD_SEGUNDOS / 60) };
 }
 
+/** Responde ao endereço de download. Código desconhecido ou vencido → página de aviso. */
+function baixar_(codigo) {
+  var raw = /^[0-9a-f]{64}$/.test(codigo) ? CacheService.getScriptCache().get('dl_' + codigo) : null;
+  if (!raw) {
+    return HtmlService.createHtmlOutput(
+      '<p style="font:16px system-ui;margin:40px">Este link de download venceu ou não é válido. ' +
+      'Volte ao Grafo Studio e gere outro em Exportar.</p>').setTitle('Link vencido');
+  }
+  var d = JSON.parse(raw);
+  var conteudo = DriveApp.getFileById(d.arquivo).getBlob().getDataAsString('UTF-8');
+  var tipo = /\.json$/i.test(d.nome) ? ContentService.MimeType.JSON : ContentService.MimeType.TEXT;
+  return ContentService.createTextOutput(conteudo).setMimeType(tipo).downloadAsFile(d.nome);
+}

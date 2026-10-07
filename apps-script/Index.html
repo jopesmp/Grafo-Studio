@@ -957,7 +957,7 @@ var LocalApi = {
   duplicateGraph: function (id) { var a = this._all(), g = JSON.parse(JSON.stringify(a[id])); g.id = 'local_' + Date.now(); g.name = 'Cópia de ' + g.name; g.updatedAt = nowIso(); a[g.id] = g; this._put(a); return { id: g.id, name: g.name }; },
   deleteGraph: function (id) { var a = this._all(); delete a[id]; this._put(a); if (this._last() === id) this._last(null); return true; },
   forgetCurrent: function () { this._last(null); return true; },
-  exportToDrive: function () { throw new Error('Disponível só quando o app roda no Google Apps Script.'); }
+  prepararDownload: function () { throw new Error('Disponível só quando o app roda no Google Apps Script. Use "Baixar arquivo".'); }
 };
 var ONLINE = !!(window.google && google.script && google.script.run);
 var TOKEN = null;
@@ -1014,6 +1014,7 @@ function doLogout() {
   flushSave().catch(function () {}).then(function () {
     var t = TOKEN;
     setToken(null);
+    apagarRascunho(); USUARIO = '';
     if (t) google.script.run.logout(t);
     setGraph(newGraph());
     $('#user-email').textContent = '';
@@ -1035,12 +1036,26 @@ function restore(json) {
 function doUndo() { if (!undoStack.length) return toast('Nada para desfazer.'); redoStack.push(snapshot()); restore(undoStack.pop()); }
 function doRedo() { if (!redoStack.length) return toast('Nada para refazer.'); undoStack.push(snapshot()); restore(redoStack.pop()); }
 
+/* ── rascunho local: cópia instantânea no navegador, para nada se perder se a aba fechar ── */
+var USUARIO = '';                 // quem está logado (preenchido pelo bootstrap)
+var mudancas = 0;                 // conta as alterações; serve para saber se algo mudou durante um salvamento
+function salvarRascunho() {
+  if (!USUARIO) return;
+  try { localStorage.setItem('gs_rascunho', JSON.stringify({ usuario: USUARIO, em: nowIso(), graph: G })); } catch (e) {}
+}
+function lerRascunho() {
+  try { var r = JSON.parse(localStorage.getItem('gs_rascunho') || 'null'); return r && r.usuario === USUARIO && r.graph ? r : null; } catch (e) { return null; }
+}
+function apagarRascunho() { try { localStorage.removeItem('gs_rascunho'); } catch (e) {} }
+
 /* ── salvamento automático ── */
 function hasContent(g) { return g.nodes.length || String(g.objective || '').trim() || g.id; }
 function setStatus(t, err) { var s = $('#save-status'); s.textContent = t; s.classList.toggle('err', !!err); }
 function scheduleSave() {
   if (!hasContent(G)) { setStatus(''); return; }
   setStatus('alterações não salvas');
+  mudancas++;
+  salvarRascunho();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(saveNow, 1200);
 }
@@ -1049,12 +1064,14 @@ function saveNow() {
   if (!hasContent(G)) return Promise.resolve();
   if (saving) { pendingSave = true; return Promise.resolve(); }
   saving = true;
-  var ref = G, seq = graphSeq;
+  var ref = G, seq = graphSeq, versao = mudancas;
   setStatus('salvando…');
   return api('saveGraph', JSON.stringify(ref)).then(function (r) {
     ref.id = r.id; ref.updatedAt = r.updatedAt;
     // Se o grafo foi desfeito/refeito durante o salvamento, G virou outro objeto: passa o id para ele também
     if (seq === graphSeq && G !== ref && !G.id) { G.id = r.id; G.updatedAt = r.updatedAt; }
+    // O servidor confirmou. Se nada mudou enquanto ele salvava, o rascunho não é mais necessário.
+    if (versao === mudancas) apagarRascunho(); else salvarRascunho();
     setStatus('salvo');
   }).catch(function (e) {
     setStatus('erro ao salvar', true);
@@ -1505,7 +1522,7 @@ function openExport() {
   var bd = openModal('<header><div><div class="label">Exportar</div><h3>Leve o grafo pronto para a IA</h3></div><button class="btn small" data-close>Fechar</button></header>' +
     '<div class="body"><div class="tabs">' + tabs.map(function (t) { return '<button class="tab" data-tab="' + t.id + '">' + t.nome + '</button>'; }).join('') + '</div>' +
     '<p class="hint" id="ex-desc" style="margin:0 0 10px"></p><textarea class="code" id="ex-code" readonly spellcheck="false"></textarea></div>' +
-    '<footer><span class="meta" id="ex-meta"></span><div class="right"><button class="btn" id="ex-drive">Salvar no Drive</button><button class="btn" id="ex-dl">Baixar arquivo</button><button class="btn primary" id="ex-copy">Copiar tudo</button></div></footer>', true);
+    '<footer><span class="meta" id="ex-meta"></span><div class="right"><button class="btn" id="ex-drive" title="Gera um link de download que vale por 10 minutos">Link de download</button><button class="btn" id="ex-dl">Baixar arquivo</button><button class="btn primary" id="ex-copy">Copiar tudo</button></div></footer>', true);
   function show(t) {
     cur = t;
     $$('.tab', bd).forEach(function (b) { b.classList.toggle('on', b.dataset.tab === t.id); });
@@ -1529,13 +1546,13 @@ function openExport() {
       a.href = URL.createObjectURL(blob); a.download = fname();
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(function () { URL.revokeObjectURL(a.href); }, 3000);
-    } catch (e) { toast('O navegador bloqueou o download aqui. Use "Salvar no Drive".'); }
+    } catch (e) { toast('O navegador bloqueou o download aqui. Use "Link de download".'); }
   };
   $('#ex-drive', bd).onclick = function () {
-    var b = this; b.disabled = true; b.textContent = 'Salvando…';
-    api('exportToDrive', fname(), $('#ex-code', bd).value).then(function (r) {
-      toast('Salvo no Drive: <a href="' + esc(r.url) + '" target="_blank" rel="noopener">abrir ' + esc(r.name) + '</a>', 7000);
-    }).catch(function (e) { toast(esc(e.message)); }).then(function () { b.disabled = false; b.textContent = 'Salvar no Drive'; });
+    var b = this; b.disabled = true; b.textContent = 'Gerando…';
+    api('prepararDownload', fname(), $('#ex-code', bd).value).then(function (r) {
+      toast('Pronto: <a href="' + esc(r.url) + '" target="_blank" rel="noopener">baixar ' + esc(r.name) + '</a> · o link vale por ' + r.minutos + ' minutos', 15000);
+    }).catch(function (e) { toast(esc(e.message)); }).then(function () { b.disabled = false; b.textContent = 'Link de download'; });
   };
   show(cur);
 }
@@ -1669,9 +1686,12 @@ function start() {
   setStatus('carregando…');
   api('bootstrap').then(function (b) {
     $('#user-email').textContent = b.email || '';
+    USUARIO = b.email || '';
     if (b.graph) { try { setGraph(JSON.parse(b.graph)); } catch (e) { setGraph(newGraph()); } }
     else setGraph(newGraph());
     setStatus(b.graph ? 'salvo' : '');
+    var rasc = lerRascunho();
+    if (rasc) { oferecerRascunho(rasc); return; }
     if (!b.helpSeen) { openHelp(); api('markHelpSeen').catch(function () {}); }
   }).catch(function (e) {
     if (!$('#login').hidden) return; // sessão expirada: a tela de login já está aberta
@@ -1680,6 +1700,19 @@ function start() {
     requestAnimationFrame(fitView);
   });
 }
+function oferecerRascunho(r) {
+  var d = new Date(r.em);
+  var quando = d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  dialog({ kicker: 'Alterações não salvas', title: 'Recuperar "' + (r.graph.name || 'Meu grafo') + '"?',
+           msg: 'Na última vez, a página foi fechada antes de salvar as alterações de ' + quando + ' (' + (r.graph.nodes || []).length + ' peças). ' +
+                'Recuperar abre essa versão e a salva. Cancelar descarta essas alterações e mantém o que já estava salvo.', ok: 'Recuperar' }).then(function (ok) {
+    if (!ok) { apagarRascunho(); return; }
+    setGraph(r.graph);
+    scheduleSave();
+    toast('Alterações recuperadas.');
+  });
+}
+
 applyView();
 renderAll();
 if (ONLINE && !TOKEN) showLogin('');
